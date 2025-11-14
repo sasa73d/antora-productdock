@@ -1,0 +1,20 @@
+site:
+  title: Moja Dokumentacija
+  start_page: docs-en:ROOT:index.adoc   # podrazumijevano startujemo EN
+
+content:
+  sources:
+  - url: .
+    branches: HEAD
+    start_path: docs-en
+  - url: .
+    branches: HEAD
+    start_path: docs-sr
+
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+
+output:
+  dir: public

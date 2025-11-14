@@ -1,0 +1,9 @@
+= MuleSoft integracije – kompanija ProductDock
+Ovo je centralna dokumentacija za Mule aplikacije i integracije.
+
+== Šta ovdje ima
+* Arhitektura i principi rada
+* Standardi za izradu Mule aplikacija
+* Jira i ostale integracije
+* Deploy i monitoring
+* Troubleshooting

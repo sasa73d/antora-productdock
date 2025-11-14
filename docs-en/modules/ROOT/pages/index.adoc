@@ -1,0 +1,10 @@
+= MuleSoft Integrations – ProductDock
+This is the central documentation for Mule applications and integrations.
+
+== What you'll find here
+
+* Architecture and design principles
+* Standards for building Mule applications
+* Jira and other integrations
+* Deployment and monitoring
+* Troubleshooting
