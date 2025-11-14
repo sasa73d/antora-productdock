@@ -1,0 +1,4 @@
+node_modules/
+public/
+ui/
+.DS_Store
