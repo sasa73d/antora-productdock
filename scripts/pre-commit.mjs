@@ -331,10 +331,19 @@ try {
   const ledgerPath = getLedgerPath(repoRoot);
   const ledgerStart = readLedgerTotalsSync(ledgerPath);
 
-  // Defaults
-  const TRANSLATION_MODE = (process.env.TRANSLATION_MODE ?? "normal").toLowerCase(); // normal|strict|off
-  const LANGUAGE_CHECK_MODE = (process.env.LANGUAGE_CHECK_MODE ?? "strict").toLowerCase(); // strict|warn|off
-  const LANGUAGE_CHECK_INCLUDE_UPDATED = (process.env.LANGUAGE_CHECK_INCLUDE_UPDATED ?? "0").toString();
+  function cleanEnvValue(v) {
+    return (v ?? "").toString().split("#")[0].trim();
+  }
+
+  // Defaults (cleaned from inline .env comments)
+  const TRANSLATION_MODE =
+    (cleanEnvValue(process.env.TRANSLATION_MODE) || "normal").toLowerCase(); // normal|strict|off
+
+  const LANGUAGE_CHECK_MODE =
+    (cleanEnvValue(process.env.LANGUAGE_CHECK_MODE) || "strict").toLowerCase(); // strict|warn|off
+
+  const LANGUAGE_CHECK_INCLUDE_UPDATED =
+    cleanEnvValue(process.env.LANGUAGE_CHECK_INCLUDE_UPDATED) || "0";
 
   // Summary counters
   let NO_CHANGES_COUNT = 0;
@@ -612,7 +621,6 @@ try {
   console.log("📊 Translation summary for this commit:");
   console.log(`   MODE:                ${TRANSLATION_MODE}       # normal | strict | off`);
   console.log(`   LANGUAGE_CHECK_MODE: ${LANGUAGE_CHECK_MODE}    # strict | warn | off (updated=${LANGUAGE_CHECK_INCLUDE_UPDATED})`);
-  console.log(`   LANGUAGE_CHECK_INCLUDE_UPDATED: ${process.env.LANGUAGE_CHECK_INCLUDE_UPDATED === "1" ? "1" : "0"}`);
   console.log(`   NO_CHANGES:          ${NO_CHANGES_COUNT} file(s)`);
   console.log(`   STRUCTURAL_ONLY:     ${STRUCTURAL_ONLY_COUNT} file(s)`);
   console.log(`   CODE_ONLY:           ${CODE_ONLY_COUNT} file(s)`);
