@@ -1,0 +1,17 @@
+{
+  "features": {
+    "optimizeStructuralChanges": true,
+    "syncStructureOnStructuralChanges": true,
+    "skipCodeOnlyChanges": true,
+    "postTranslationValidation": true
+  },
+  "languages": {
+    "sr": {
+      "enabled": true,
+      "direction": "en->sr",
+      "sourceDir": "docs-en",
+      "targetDir": "docs-sr"
+    }
+  }
+}
+

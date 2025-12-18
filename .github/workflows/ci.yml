@@ -1,0 +1,138 @@
+# ============================================================
+# GitHub Actions workflow
+# Builds and deploys Antora documentation to GitHub Pages
+# ============================================================
+
+name: Build & Deploy Antora to GitHub Pages
+
+# ------------------------------------------------------------
+# When this workflow is triggered
+# ------------------------------------------------------------
+on:
+  # Run on every push to main branch (production deploy)
+  push:
+    branches: [ "main" ]
+
+  # Run on every pull request (verification only, no deploy)
+  pull_request:
+
+  # Allow manual execution from GitHub UI
+  workflow_dispatch:
+
+# ------------------------------------------------------------
+# Required permissions for GitHub Pages deployment
+# ------------------------------------------------------------
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ------------------------------------------------------------
+# Prevent concurrent deployments to GitHub Pages
+# ------------------------------------------------------------
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================
+  # VERIFY JOB
+  # Fast, cheap checks (NO AI, NO DEPLOY)
+  # Runs on PRs and pushes
+  # ==========================================================
+  verify:
+    name: Verify (no AI)
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repository
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup Node.js runtime
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Install dependencies strictly from package-lock.json
+      # Ensures reproducible builds
+      - name: Install dependencies
+        run: npm ci
+
+      # Verify Git hooks bootstrap logic
+      # This ensures:
+      #  - bootstrap-hooks.mjs works
+      #  - hooksPath logic is valid
+      #  - no AI calls are made
+      - name: Verify hooks bootstrap
+        run: npm run hooks:verify
+
+  # ==========================================================
+  # BUILD JOB
+  # Builds Antora site into ./public directory
+  # Depends on verify job
+  # ==========================================================
+  build:
+    name: Build Antora site
+    runs-on: ubuntu-latest
+    needs: [ verify ]
+
+    steps:
+      # Checkout repository
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup Node.js runtime
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Install dependencies (Antora included via devDependencies)
+      - name: Install dependencies
+        run: npm ci
+
+      # Build Antora documentation site
+      # Output is generated into ./public directory
+      - name: Build Antora site
+        run: npx antora antora-playbook.yml
+
+      # Prepare GitHub Pages environment
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # Upload generated site as an artifact
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  # ==========================================================
+  # DEPLOY JOB
+  # Deploys site to GitHub Pages
+  # Runs ONLY on main branch
+  # ==========================================================
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+
+    # Prevent deployment from pull requests
+    if: github.ref == 'refs/heads/main'
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # Deploy artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

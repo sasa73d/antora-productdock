@@ -1,0 +1,10 @@
+:primary-lang: en
+
+= Test Page
+Windmill
+
+A windmill is a machine that converts wind energy into
+rotational energy. Historically, it was used for
+grinding grain, sawing wood, or pumping water.
+Its characteristic sails and tall structure are
+an iconic sight in the Dutch landscape.

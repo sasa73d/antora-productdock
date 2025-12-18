@@ -1,0 +1,10 @@
+:primary-lang: en
+
+= Test Page
+Vetarica
+
+Vetarica je mašina koja pretvara energiju vetra u
+rotacionu energiju. Istorijski se koristila za
+mlevenje žita, testere drva ili pumpanje vode.
+Njene karakteristične jedra i visoka struktura su
+ikonijski prizor u holandskom pejzažu.

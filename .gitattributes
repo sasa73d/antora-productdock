@@ -1,0 +1,9 @@
+* text=auto
+
+# Ensure hooks are always LF (avoid CRLF issues on Windows)
+.githooks/* text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf

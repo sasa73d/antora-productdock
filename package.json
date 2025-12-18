@@ -1,0 +1,35 @@
+{
+  "name": "antora-productdock",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "prepare": "node scripts/bootstrap-hooks.mjs",
+    "hooks:install": "node scripts/bootstrap-hooks.mjs",
+    "hooks:verify": "node scripts/bootstrap-hooks.mjs --verify",
+    "hooks:dry-run": "node scripts/bootstrap-hooks.mjs --dry-run",
+    "tokens:report": "node scripts/token-report.mjs",
+    "eol:normalize": "git add --renormalize .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sasa73d/antora-productdock.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sasa73d/antora-productdock/issues"
+  },
+  "homepage": "https://github.com/sasa73d/antora-productdock#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "openai": "^6.9.1"
+  },
+  "devDependencies": {
+    "@antora/cli": "^3.1.14",
+    "@antora/site-generator-default": "^3.1.14"
+  }
+}

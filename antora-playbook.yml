@@ -1,6 +1,6 @@
 site:
-  title: Moja Dokumentacija
-  start_page: docs-en:ROOT:index.adoc   # podrazumijevano startujemo EN
+  title: ProductDock documentation
+  start_page: docs-en:ROOT:index.adoc   # start page EN
 
 content:
   sources:
