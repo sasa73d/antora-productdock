@@ -116,6 +116,9 @@ function filePrimaryLang(file) {
 }
 
 function ensurePrimaryLang(file) {
+  // ⛔ nav.adoc is structural — NEVER add :primary-lang: to it
+  if (file.endsWith("/nav.adoc")) return;
+
   if (!existsSync(file)) return;
 
   const txt = readFileSync(file, "utf8");
@@ -356,7 +359,6 @@ try {
         console.log("⛔ pre-commit: navigation PRE-check failed. Aborting commit.");
         process.exit(code);
       }
-      console.log("✅ Navigation PRE-check passed: all new primary pages are present in nav.");
     } else {
       console.log("ℹ️  validate-nav.mjs not found. Skipping navigation PRE-check.");
     }
@@ -381,12 +383,12 @@ try {
   const EN_PRIMARY_FILES = getStagedFiles([
     "docs-en/modules/ROOT/*.adoc",
     "docs-en/modules/ROOT/pages/*.adoc",
-  ]);
+  ]).filter((f) => !f.endsWith("/nav.adoc"));
 
   const SR_PRIMARY_FILES = getStagedFiles([
     "docs-sr/modules/ROOT/*.adoc",
     "docs-sr/modules/ROOT/pages/*.adoc",
-  ]);
+  ]).filter((f) => !f.endsWith("/nav.adoc"));
 
   // ---------------- EN-primary pipeline ----------------
   if (TRANSLATION_MODE !== "off" && EN_PRIMARY_FILES.length) {
@@ -577,7 +579,7 @@ try {
   }
 
   // ---------------- Formatting pass ----------------
-  const stagedAdocAll = getStagedFiles(["*.adoc"]);
+  const stagedAdocAll = getStagedFiles(["**/*.adoc"]);
   if (stagedAdocAll.length && existsSync(path.join("scripts", "format-adoc.mjs"))) {
     console.log("🧹 Running AsciiDoc formatter on staged .adoc files...");
     for (const f of stagedAdocAll) {
@@ -600,8 +602,6 @@ try {
       console.log("⛔ pre-commit: navigation POST validation failed. Aborting commit.");
       process.exit(navCode);
     }
-
-    console.log("🧭 Running EN/SR navigation POST auto-sync...");
     if (existsSync("docs-en/modules/ROOT/nav.adoc")) git(["add", "docs-en/modules/ROOT/nav.adoc"], { stdio: "inherit" });
     if (existsSync("docs-sr/modules/ROOT/nav.adoc")) git(["add", "docs-sr/modules/ROOT/nav.adoc"], { stdio: "inherit" });
   } else {
@@ -612,6 +612,7 @@ try {
   console.log("📊 Translation summary for this commit:");
   console.log(`   MODE:                ${TRANSLATION_MODE}       # normal | strict | off`);
   console.log(`   LANGUAGE_CHECK_MODE: ${LANGUAGE_CHECK_MODE}    # strict | warn | off (updated=${LANGUAGE_CHECK_INCLUDE_UPDATED})`);
+  console.log(`   LANGUAGE_CHECK_INCLUDE_UPDATED: ${process.env.LANGUAGE_CHECK_INCLUDE_UPDATED === "1" ? "1" : "0"}`);
   console.log(`   NO_CHANGES:          ${NO_CHANGES_COUNT} file(s)`);
   console.log(`   STRUCTURAL_ONLY:     ${STRUCTURAL_ONLY_COUNT} file(s)`);
   console.log(`   CODE_ONLY:           ${CODE_ONLY_COUNT} file(s)`);

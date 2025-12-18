@@ -1,4 +1,3 @@
-:primary-lang: en
 
 * xref:index.adoc[Home]
 * xref:test-page.adoc[Test Page]

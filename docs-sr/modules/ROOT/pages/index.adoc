@@ -8,7 +8,7 @@ Ovo je centralna dokumentacija za Mule aplikacije i integracije.
 * Arhitektura i principi dizajna
 * Standardi za izgradnju Mule aplikacija
 * Jira i druge integracije
-* Deploy i nadzor
+* Deploy i monitoring
 * Otklanjanje problema
 * Testiranje promenljivog teksta
-*** Za potrebe testiranja teksta (treći put)
+*** Za potrebe testiranja teksta (drugi put)

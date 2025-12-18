@@ -11,4 +11,4 @@ This is the central documentation for Mule applications and integrations.
 * Deployment and monitoring
 * Troubleshooting
 * Variable text testing
-*** For text testing purposes (third time)
+*** For text testing purposes (second time)
