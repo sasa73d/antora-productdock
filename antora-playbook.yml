@@ -10,6 +10,9 @@ content:
   - url: .
     branches: HEAD
     start_path: docs-sr
+  - url: .
+    branches: HEAD
+    start_path: docs-assets
 
 ui:
   bundle:
