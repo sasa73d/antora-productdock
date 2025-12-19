@@ -3,14 +3,14 @@
 = MuleSoft Integrations – ProductDock
 Ovo je centralna dokumentacija za Mule aplikacije i integracije.
 
-== What you'll find here
+== Šta ćete ovde pronaći
 
 * Arhitektura i principi dizajna
 * Standardi za izgradnju Mule aplikacija
 * Jira i druge integracije
-* Implementacija i praćenje
-* Otklanjanje problema
+* Implementacija i nadzor
+* Rešavanje problema
 * Testiranje promenljivog teksta
 *** Za potrebe testiranja teksta (drugi put)
 
-image:docs-assets::images/shared/architecture/API-Led-1.png[Led connectivity]
+image:docs-assets::shared/architecture/API-Led-1.png[Led connectivity]
