@@ -1,10 +1,28 @@
 :primary-lang: en
 
 = Test Page
-Vetarica
+Windmill
 
-Vetarica je mašina koja pretvara energiju vetra u
-rotacionu energiju. Istorijski se koristila za
-mlevenje žita, testere drva ili pumpanje vode.
-Njene karakteristične jedra i visoka struktura su
-ikonijski prizor u holandskom pejzažu.
+Vetran je mašina koja pretvara energiju vetra u
+rotacionu energiju. Istorijski gledano, koristila se za
+mlevenje žita, sečenje drva ili pumpanje vode.
+Karakteristična krila i visoka struktura su
+ikonografski prizor u holandskom pejzažu.
+
+
+== Integration Flow
+
+[source,mermaid]
+----
+sequenceDiagram
+  participant User
+  participant API
+  participant Mule
+  participant Jira
+
+  User->>API: Create ticket
+  API->>Mule: POST /issue
+  Mule->>Jira: Create issue
+  Jira-->>Mule: Issue ID
+  Mule-->>API: 201 Created
+----

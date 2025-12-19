@@ -8,7 +8,9 @@ Ovo je centralna dokumentacija za Mule aplikacije i integracije.
 * Arhitektura i principi dizajna
 * Standardi za izgradnju Mule aplikacija
 * Jira i druge integracije
-* Deploy i monitoring
+* Implementacija i praćenje
 * Otklanjanje problema
 * Testiranje promenljivog teksta
 *** Za potrebe testiranja teksta (drugi put)
+
+image:docs-assets::images/shared/architecture/API-Led-1.png[Led connectivity]

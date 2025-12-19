@@ -12,3 +12,5 @@ This is the central documentation for Mule applications and integrations.
 * Troubleshooting
 * Variable text testing
 *** For text testing purposes (second time)
+
+image:docs-assets::images/shared/architecture/API-Led-1.png[Led connectivity]

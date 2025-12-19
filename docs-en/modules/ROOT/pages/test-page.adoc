@@ -8,3 +8,21 @@ rotational energy. Historically, it was used for
 grinding grain, sawing wood, or pumping water.
 Its characteristic sails and tall structure are
 an iconic sight in the Dutch landscape.
+
+
+== Integration Flow
+
+[source,mermaid]
+----
+sequenceDiagram
+  participant User
+  participant API
+  participant Mule
+  participant Jira
+
+  User->>API: Create ticket
+  API->>Mule: POST /issue
+  Mule->>Jira: Create issue
+  Jira-->>Mule: Issue ID
+  Mule-->>API: 201 Created
+----
