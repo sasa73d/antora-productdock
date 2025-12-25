@@ -12,17 +12,17 @@ an iconic sight in the Dutch landscape.
 
 == Integration Flow
 
-[source,mermaid]
-----
+[role=mermaid]
+....
 sequenceDiagram
-  participant User
-  participant API
-  participant Mule
-  participant Jira
+participant User
+participant API
+participant Mule
+participant Jira
 
-  User->>API: Create ticket
-  API->>Mule: POST /issue
-  Mule->>Jira: Create issue
-  Jira-->>Mule: Issue ID
-  Mule-->>API: 201 Created
-----
+User->>API: Create ticket
+API->>Mule: POST /issue
+Mule->>Jira: Create issue
+Jira-->>Mule: Issue ID
+Mule-->>API: 201 Created
+....

@@ -16,8 +16,8 @@ content:
 
 ui:
   bundle:
-    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
-    snapshot: true
+    url: https://antora-ui-productdock-bef695.gitlab.io/ui/v1.0.6/ui-bundle.zip
+    snapshot: false
 
 output:
   dir: public
