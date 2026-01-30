@@ -106,7 +106,11 @@ function extractRemovedAdded(diffOutput) {
   const added = [];
 
   for (const line of lines) {
-    if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
+    if (
+      line.startsWith('---') ||
+      line.startsWith('+++') ||
+      line.startsWith('@@')
+    ) {
       continue;
     }
     if (line.startsWith('-')) {
@@ -141,8 +145,9 @@ function normalizeLines(lines) {
       line = line.replace(/^([=*.+0-9#-]+\s*)/, '').trimEnd();
     }
 
-    // keep only lines that contain letters (we ignore pure symbols/numbers)
-    if (!/[A-Za-z]/.test(line)) {
+    // keep only lines that contain ANY Unicode letter (Latin, Cyrillic, etc.)
+    // This fixes SR text with diacritics (š, ć, č, đ, ž) and/or Cyrillic.
+    if (!/\p{L}/u.test(line)) {
       continue;
     }
 
@@ -257,6 +262,18 @@ async function main() {
   const { removed, added } = extractRemovedAdded(diffOutput);
   const normRemoved = normalizeLines(removed);
   const normAdded = normalizeLines(added);
+
+  // FAIL-SAFE:
+  // If there IS a diff, but normalization stripped everything (e.g. non-ASCII language),
+  // we must NOT classify as NO_CHANGES because that would skip translation.
+  if (
+    (removed.length > 0 || added.length > 0) &&
+    normRemoved.length === 0 &&
+    normAdded.length === 0
+  ) {
+    console.log(`STATUS=${STATUS.TEXT_AND_STRUCTURE}`);
+    process.exit(0);
+  }
 
   // If no textual content changed at all (after stripping headings/lists etc.)
   if (normRemoved.length === 0 && normAdded.length === 0) {
