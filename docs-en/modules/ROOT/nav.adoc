@@ -1,3 +1,2 @@
 
 * xref:index.adoc[Home]
-* xref:1_Opsti_pregled_Mule-a.adoc[Mule Overview]
