@@ -90,7 +90,13 @@ function getStagedNameStatus(patterns) {
   const out = gitTry(["diff", "--cached", "--name-status", "--", ...patterns]);
   if (!out) return [];
   return out.split(/\r?\n/).map((l) => {
-    const [status, file] = l.trim().split(/\s+/);
+    const parts = l.trim().split(/\s+/);
+    const status = parts[0] || "";
+    // Rename/Copy: R100 old new  /  C100 old new
+    const file =
+      (status.startsWith("R") || status.startsWith("C")) && parts.length >= 3
+        ? parts[2] // new path
+        : parts[1];
     return { status, file };
   });
 }
@@ -389,15 +395,19 @@ try {
   checkPrimaryMarkerConsistency(stagedEnAll, stagedSrAll);
   detectManualSrEditsForEnPrimary();
 
-  const EN_PRIMARY_FILES = getStagedFiles([
+  const EN_PRIMARY_FILES = getStagedNameStatus([
     "docs-en/modules/ROOT/*.adoc",
     "docs-en/modules/ROOT/pages/*.adoc",
-  ]).filter((f) => !f.endsWith("/nav.adoc"));
+  ])
+    .filter(({ status, file }) => status !== "D" && file && !file.endsWith("/nav.adoc"))
+    .map(({ file }) => file);
 
-  const SR_PRIMARY_FILES = getStagedFiles([
+  const SR_PRIMARY_FILES = getStagedNameStatus([
     "docs-sr/modules/ROOT/*.adoc",
     "docs-sr/modules/ROOT/pages/*.adoc",
-  ]).filter((f) => !f.endsWith("/nav.adoc"));
+  ])
+    .filter(({ status, file }) => status !== "D" && file && !file.endsWith("/nav.adoc"))
+    .map(({ file }) => file);
 
   // ---------------- EN-primary pipeline ----------------
   if (TRANSLATION_MODE !== "off" && EN_PRIMARY_FILES.length) {
