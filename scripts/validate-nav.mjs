@@ -2,23 +2,24 @@
 // validate-nav.mjs
 //
 // Modes:
-//  - PRE  mode:  node validate-nav.mjs --pre <list-of-new-pages>
-//       * provjerava da li SVAKA nova primarna stranica ima entry u svom primarnom nav-u
-//       * NE mijenja nav fajlove
+//
+//  - PRE mode:  node validate-nav.mjs --pre <list-of-new-pages>
+//      * checks that EVERY new primary page has an entry in its primary nav
+//      * does NOT modify nav files
 //
 //  - POST mode: node validate-nav.mjs
-//       * automatski usklađuje EN/SR nav:
-//           - dodaje nedostajuće entry-je u sekundarni nav
-//           - poravnava depth (*, **, ***) u sekundarnom nav-u prema primarnom
-//           - prevodi labelu primarnog nav entry-ja u sekundarni jezik (AI, temperature 0)
-//       * abortuje commit samo ako ostane "stvarno" problematična situacija
-//         (npr. nav referencira stranicu koja uopšte ne postoji ni u EN ni u SR)
+//      * automatically syncs EN/SR nav files:
+//          - adds missing entries into the secondary nav
+//          - aligns depth (*, **, ***) in the secondary nav to match the primary nav
+//          - translates the primary nav entry label into the secondary language (AI, temperature 0)
+//      * aborts the commit only if a truly problematic situation remains
+//        (e.g., nav references a page that does not exist in either EN or SR)
 
 import fs from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
 
-// ---------- Konstante ----------
+// ---------- Constants ----------
 
 const EN_NAV_PATH = "docs-en/modules/ROOT/nav.adoc";
 const SR_NAV_PATH = "docs-sr/modules/ROOT/nav.adoc";
@@ -28,7 +29,7 @@ const SR_PAGES_ROOT = "docs-sr/modules/ROOT/pages";
 
 const NAV_STRICT_MODE = process.env.NAV_STRICT_MODE === "1";
 
-// ---------- Pomocne funkcije za fajlove ----------
+// ---------- File helpers ----------
 
 async function fileExists(p) {
   try {
@@ -55,7 +56,9 @@ async function readFileRequired(p) {
 // ---------- primary-lang helper ----------
 
 function extractPrimaryLangFromContent(content, fallback) {
-  const match = content.match(/^[ \t]*:primary-lang:[ \t]*([a-zA-Z\-]+)[ \t]*$/im);
+  const match = content.match(
+    /^[ \t]*:primary-lang:[ \t]*([a-zA-Z\-]+)[ \t]*$/im
+  );
   if (!match) return fallback ?? "";
   const raw = match[1].toLowerCase();
   if (raw.startsWith("en")) return "en";
@@ -63,11 +66,11 @@ function extractPrimaryLangFromContent(content, fallback) {
   return raw;
 }
 
-// Cache za informacije o stranicama (da ne citamo iste fajlove vise puta)
+// Cache page metadata (so we don't read the same page files repeatedly)
 const pageInfoCache = new Map();
 
 /**
- * Vraca info o stranici po relativnom imenu, npr. "test-page-1.adoc"
+ * Returns info for a page by its relative file name, e.g. "test-page-1.adoc"
  * {
  *   existsEn: bool,
  *   existsSr: bool,
@@ -106,11 +109,11 @@ async function getPageInfo(pageId) {
   return info;
 }
 
-// ---------- Parsiranje nav fajlova ----------
+// ---------- nav.adoc parsing ----------
 
 /**
- * Parsira nav.adoc:
- *  - lines: niz svih linija
+ * Parses nav.adoc:
+ *  - lines: array of all lines
  *  - entries: { lineIndex, indent, stars, target, label, rawLine }
  *  - byTarget: Map(target -> entry)
  */
@@ -129,8 +132,8 @@ function parseNav(content) {
     const targetRaw = m[3].trim();
     const labelRaw = m[4].trim();
 
-    // target je tipa "test-page.adoc" ili "modules:ROOT:test-page.adoc" itd.
-    // Za sada pretpostavljamo da koristimo relativne page id-ove (test-page.adoc).
+    // target can be "test-page.adoc" or "modules:ROOT:test-page.adoc", etc.
+    // For now, we assume we use relative page ids ("test-page.adoc").
     const target = targetRaw;
 
     const entry = {
@@ -142,7 +145,7 @@ function parseNav(content) {
       rawLine: line,
     };
 
-    // Ako ima duplikata za isti target, uzimamo prvi (to je obicno dovoljno)
+    // If duplicates exist for the same target, keep the first one.
     if (!byTarget.has(target)) {
       byTarget.set(target, entry);
     }
@@ -154,14 +157,14 @@ function parseNav(content) {
 }
 
 /**
- * Rekonstruiše liniju xref entry-ja.
+ * Rebuilds a single xref entry line.
  */
 function buildNavLine(indent, stars, target, label) {
   const safeLabel = label || "";
   return `${indent}${stars} xref:${target}[${safeLabel}]`;
 }
 
-// ---------- PRE-MODE: provjera za nove primarne stranice ----------
+// ---------- PRE mode: check new primary pages exist in primary nav ----------
 
 async function runPreCheck(newPages) {
   console.log("🧭 Running navigation PRE-check for new primary pages...");
@@ -183,7 +186,7 @@ async function runPreCheck(newPages) {
   const srNav = parseNav(srNavContent);
 
   for (const pagePath of newPages) {
-    // Očekujemo putanju tipa docs-en/modules/ROOT/pages/test-page.adoc
+    // Expect paths like: docs-en/modules/ROOT/pages/test-page.adoc
     let lang = "";
     let pageId = "";
 
@@ -194,18 +197,18 @@ async function runPreCheck(newPages) {
       lang = "sr";
       pageId = pagePath.replace("docs-sr/modules/ROOT/pages/", "");
     } else {
-      // Nije standardna lokacija, preskačemo
+      // Not a standard page location; skip
       continue;
     }
 
     const pageInfo = await getPageInfo(pageId);
 
-    // Stranica moze biti primarna en ili sr, zavisno od :primary-lang:
+    // The page is considered "primary" based on :primary-lang:
     let isPrimary = false;
     if (lang === "en" && pageInfo.enPrimary) isPrimary = true;
     if (lang === "sr" && pageInfo.srPrimary) isPrimary = true;
 
-    if (!isPrimary) continue; // ako stranica nije primarna, ne forsiramo nav entry ovdje
+    if (!isPrimary) continue; // only enforce nav entry for primary pages
 
     const navToCheck = lang === "en" ? enNav : srNav;
     if (!navToCheck.byTarget.has(pageId)) {
@@ -214,7 +217,9 @@ async function runPreCheck(newPages) {
   }
 
   if (missingInNav.en.length === 0 && missingInNav.sr.length === 0) {
-    console.log("✅ Navigation PRE-check passed: all new primary pages are present in nav.");
+    console.log(
+      "✅ Navigation PRE-check passed: all new primary pages are present in nav."
+    );
     return 0;
   }
 
@@ -243,7 +248,7 @@ async function runPreCheck(newPages) {
   return 1;
 }
 
-// ---------- AI prevod labela ----------
+// ---------- AI label translation ----------
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 let openaiClient = null;
@@ -261,9 +266,31 @@ const LANGUAGE_NAMES = {
   sr: "Serbian",
 };
 
+/**
+ * Splits an ordinal prefix from a nav label.
+ * Examples:
+ *  - "1. Opšti pregled"   -> { prefix: "1. ", rest: "Opšti pregled" }
+ *  - "1.2. Some topic"    -> { prefix: "1.2. ", rest: "Some topic" }
+ * If no prefix is found, prefix is "" and rest is the original trimmed label.
+ */
+function splitOrdinalPrefix(label) {
+  const raw = (label ?? "").trim();
+  // Supports: "1. ", "1.2. ", "10. ", etc.
+  const m = raw.match(/^(\d+(?:\.\d+)*\.\s+)(.*)$/);
+  if (!m) return { prefix: "", rest: raw };
+  return { prefix: m[1] || "", rest: (m[2] || "").trim() };
+}
+
 async function translateLabel(label, sourceLang, targetLang) {
-  // Ako nema label-a ili nema API key-a, samo vracamo original
+  // If there is no label or it is empty, return as-is
   if (!label || !label.trim()) return label;
+
+  // Preserve ordinal numbering prefix (e.g., "1. " / "1.2. ")
+  const { prefix, rest } = splitOrdinalPrefix(label);
+
+  // If label is only a prefix (e.g. "1."), there's nothing to translate
+  if (!rest) return label.trim();
+
   const client = getOpenAIClient();
   if (!client) {
     console.log(
@@ -286,8 +313,9 @@ async function translateLabel(label, sourceLang, targetLang) {
               type: "input_text",
               text:
                 `Translate this Antora navigation label from ${srcName} to ${tgtName}. ` +
-                `Keep it short and natural for a sidebar menu. Return only the translated label, no quotes, no extra text:\n\n` +
-                label,
+                `Keep it short and natural for a sidebar menu. ` +
+                `IMPORTANT: Do NOT add or remove any numbering prefixes. Return only the translated text, no quotes, no extra text:\n\n` +
+                rest,
             },
           ],
         },
@@ -295,10 +323,17 @@ async function translateLabel(label, sourceLang, targetLang) {
       temperature: 0,
     });
 
-    const out = response.output?.[0]?.content?.[0]?.text || label;
-    const trimmed = out.trim();
-    if (!trimmed) return label;
-    return trimmed;
+    let out = response.output?.[0]?.content?.[0]?.text || rest;
+    out = out.trim();
+    if (!out) out = rest;
+
+    // Defensive: if the model still returned a number prefix, remove it to avoid duplication.
+    if (prefix) {
+      out = out.replace(/^\d+(?:\.\d+)*\.\s+/, "").trim();
+    }
+
+    // Re-attach the original numbering prefix
+    return `${prefix}${out}`.trim();
   } catch (err) {
     console.log(
       `⚠️  Failed to translate nav label "${label}" from ${sourceLang} to ${targetLang}:`,
@@ -308,7 +343,7 @@ async function translateLabel(label, sourceLang, targetLang) {
   }
 }
 
-// ---------- POST-MODE: automatsko usklađivanje NAV ----------
+// ---------- POST mode: automatic EN/SR nav sync ----------
 
 async function runPostSync() {
   console.log("🧭 Running EN/SR navigation POST auto-sync...");
@@ -317,7 +352,9 @@ async function runPostSync() {
   const srNavExists = await fileExists(SR_NAV_PATH);
 
   if (!enNavExists && !srNavExists) {
-    console.log("ℹ️  No EN/SR nav.adoc files found. Skipping navigation POST validation.");
+    console.log(
+      "ℹ️  No EN/SR nav.adoc files found. Skipping navigation POST validation."
+    );
     return 0;
   }
 
@@ -327,7 +364,7 @@ async function runPostSync() {
   const enNav = parseNav(enNavContent || "");
   const srNav = parseNav(srNavContent || "");
 
-  // Skupljamo sve pageId-ove koji se pojavljuju u bar jednom nav-u
+  // Collect all page targets appearing in either nav
   const allTargets = new Set();
   for (const e of enNav.entries) allTargets.add(e.target);
   for (const e of srNav.entries) allTargets.add(e.target);
@@ -341,13 +378,13 @@ async function runPostSync() {
   const unresolvedProblems = [];
 
   for (const target of allTargets) {
-    const pageId = target; // trenutno pretpostavljamo da je target = "test-page.adoc"
+    const pageId = target; // currently assume target = "test-page.adoc"
 
     const info = await getPageInfo(pageId);
     const enEntry = enNav.byTarget.get(target) || null;
     const srEntry = srNav.byTarget.get(target) || null;
 
-    // Ako stranica ne postoji ni u EN ni u SR, a pojavljuje se u nav-u -> realan problem
+    // If the page does not exist in either EN or SR, but is referenced in nav => real issue
     if (!info.existsEn && !info.existsSr) {
       unresolvedProblems.push(
         `Nav references page "${pageId}" but the page does not exist in EN or SR.`
@@ -355,7 +392,7 @@ async function runPostSync() {
       continue;
     }
 
-    // Odredjujemo primarni jezik za ovu stranicu
+    // Determine primary/secondary language for this page
     let primaryLang = null;
     let secondaryLang = null;
 
@@ -366,15 +403,14 @@ async function runPostSync() {
       primaryLang = "sr";
       secondaryLang = "en";
     } else if (info.enPrimary && info.srPrimary) {
-      // Ako su oba markirana kao primary (neocekivano), dajemo prednost EN
+      // If both are marked primary (unexpected), prefer EN
       primaryLang = "en";
       secondaryLang = "sr";
       console.log(
         `⚠️  Both EN and SR are marked as primary for page "${pageId}". Using EN as primary for nav sync.`
       );
     } else if (info.existsEn && !info.existsSr) {
-      // Samo EN verzija postoji -> nav moze da postoji samo u EN; u SR ne radimo nista
-      // Ako postoji SR nav bez stranice, to je problem
+      // Only EN exists => SR nav referencing it is an error
       if (srEntry) {
         unresolvedProblems.push(
           `SR nav references "${pageId}" but SR page does not exist.`
@@ -382,7 +418,7 @@ async function runPostSync() {
       }
       continue;
     } else if (info.existsSr && !info.existsEn) {
-      // Samo SR verzija postoji
+      // Only SR exists => EN nav referencing it is an error
       if (enEntry) {
         unresolvedProblems.push(
           `EN nav references "${pageId}" but EN page does not exist.`
@@ -390,7 +426,7 @@ async function runPostSync() {
       }
       continue;
     } else {
-      // Neki cudan slucaj, preskacemo
+      // Unknown corner case; skip
       continue;
     }
 
@@ -398,27 +434,31 @@ async function runPostSync() {
     const secondaryNav = primaryLang === "en" ? srNav : enNav;
     const primaryLines = primaryLang === "en" ? enLines : srLines;
     const secondaryLines = primaryLang === "en" ? srLines : enLines;
-    const setPrimaryChanged = primaryLang === "en"
-      ? (v) => {
-          enNavChanged = enNavChanged || v;
-        }
-      : (v) => {
-          srNavChanged = srNavChanged || v;
-        };
-    const setSecondaryChanged = primaryLang === "en"
-      ? (v) => {
-          srNavChanged = srNavChanged || v;
-        }
-      : (v) => {
-          enNavChanged = enNavChanged || v;
-        };
+
+    const setPrimaryChanged =
+      primaryLang === "en"
+        ? (v) => {
+            enNavChanged = enNavChanged || v;
+          }
+        : (v) => {
+            srNavChanged = srNavChanged || v;
+          };
+
+    const setSecondaryChanged =
+      primaryLang === "en"
+        ? (v) => {
+            srNavChanged = srNavChanged || v;
+          }
+        : (v) => {
+            enNavChanged = enNavChanged || v;
+          };
 
     const primaryEntry = primaryNav.byTarget.get(target) || null;
     const secondaryEntry = secondaryNav.byTarget.get(target) || null;
 
-    // Ako primary nav NEMA entry, a secondary ima -> ovo je sumnjivo.
-    // Po filozofiji: primary se edituje ručno, secondary automatski.
-    // Ako se desi ovo, prijavimo kao problem i ne diramo automatski.
+    // If primary nav has NO entry but secondary does => suspicious.
+    // Philosophy: primary nav is edited manually; secondary is auto-synced.
+    // If this happens, report as a problem and do not auto-fix.
     if (!primaryEntry && secondaryEntry) {
       unresolvedProblems.push(
         `Page "${pageId}" is primary in ${primaryLang.toUpperCase()}, but nav entry exists only in ${secondaryLang.toUpperCase()} nav. Please add it manually to ${primaryLang.toUpperCase()} nav.`
@@ -426,15 +466,15 @@ async function runPostSync() {
       continue;
     }
 
-    // Ako nema primary entry-ja -> ne radimo nista ovdje (primary nav treba prvo da se popravi)
+    // If there is no primary entry, do nothing (primary nav must be fixed manually first)
     if (!primaryEntry) {
       continue;
     }
 
-    // Sada pravimo canonical sekundarni entry:
-    //  - ista dubina (*, **, ...)
-    //  - target isti (pageId)
-    //  - label = AI prevod label-e iz primary nav-a
+    // Build the canonical secondary entry:
+    //  - same depth (*, **, ...)
+    //  - same target
+    //  - translated label from primary nav entry
     let newSecondaryLabel;
     if (primaryLang === secondaryLang) {
       newSecondaryLabel = primaryEntry.label;
@@ -454,14 +494,14 @@ async function runPostSync() {
     );
 
     if (!secondaryEntry) {
-      // Nema entry-ja u sekundarnom nav-u -> dodajemo na kraj
+      // No entry in secondary nav -> append to the end
       console.log(
         `🧭 Adding nav entry in ${secondaryLang.toUpperCase()} nav for page ${pageId}`
       );
       secondaryLines.push(newSecondaryLine);
       setSecondaryChanged(true);
     } else {
-      // Postoji entry u sekundarnom nav-u -> provjerimo da li treba update
+      // Entry exists -> update if needed
       const needUpdate =
         secondaryEntry.indent !== primaryEntry.indent ||
         secondaryEntry.stars !== primaryEntry.stars ||
@@ -472,14 +512,14 @@ async function runPostSync() {
         console.log(
           `🧭 Updating nav entry in ${secondaryLang.toUpperCase()} nav for page ${pageId}`
         );
-        // Azuriramo liniju na istoj poziciji
+        // Update the line at the same position
         secondaryLines[secondaryEntry.lineIndex] = newSecondaryLine;
         setSecondaryChanged(true);
       }
     }
   }
 
-  // Upis promjena (ako ih ima)
+  // Write changes (if any)
   if (enNavExists && enNavChanged) {
     console.log("🧭 Writing updated EN nav.adoc (auto-synced)...");
     await fs.writeFile(EN_NAV_PATH, enLines.join("\n"), "utf8");
@@ -512,7 +552,9 @@ async function runPostSync() {
     }
   }
 
-  console.log("✅ Navigation POST auto-sync & validation passed. EN and SR nav files are consistent.");
+  console.log(
+    "✅ Navigation POST auto-sync & validation passed. EN and SR nav files are consistent."
+  );
   return 0;
 }
 
