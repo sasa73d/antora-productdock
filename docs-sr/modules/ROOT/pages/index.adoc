@@ -1,16 +1,5 @@
 :primary-lang: en
 
-= MuleSoft Integrations – ProductDock
-Ovo je centralna dokumentacija za Mule aplikacije i integracije.
+= Uvod u MuleSoft i Mule 4
 
-== Šta ćete ovde pronaći
-
-* Arhitektura i principi dizajna
-* Standardi za izgradnju Mule aplikacija
-* Jira i druge integracije
-* Implementacija i nadzor
-* Rešavanje problema
-* Testiranje promenljivog teksta
-*** Za potrebe testiranja teksta (drugi put)
-
-image:docs-assets::shared/architecture/API-Led-1.png[Led connectivity]
+image:docs-assets::shared/architecture/API-Led-1.png[Vođena povezanost]

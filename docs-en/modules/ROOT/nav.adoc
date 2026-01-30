@@ -1,4 +1,2 @@
 
 * xref:index.adoc[Home]
-* xref:test-page.adoc[Test Page]
-* xref:test-page-1.adoc[Test Page 1]

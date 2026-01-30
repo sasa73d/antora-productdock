@@ -1,4 +1,3 @@
 
+
 * xref:index.adoc[Početna]
-* xref:test-page.adoc[Test stranica]
-* xref:test-page-1.adoc[Test stranica 1]

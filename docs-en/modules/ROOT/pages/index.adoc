@@ -1,16 +1,5 @@
 :primary-lang: en
 
-= MuleSoft Integrations – ProductDock
-This is the central documentation for Mule applications and integrations.
+= Introduction to MuleSoft and Mule 4
 
-== What you'll find here
-
-* Architecture and design principles
-* Standards for building Mule applications
-* Jira and other integrations
-* Deployment and monitoring
-* Troubleshooting
-* Variable text testing
-*** For text testing purposes (second time)
-
-image:docs-assets::shared/architecture/API-Led-1.png[Led connectivity]
+image:docs-assets::shared/architecture/API-Led-1.png[API-led connectivity]
