@@ -1,5 +1,5 @@
 
 
 * xref:index.adoc[Početna]
-* xref:1_Mule Overview.adoc[1. Opšti pregled Mule-a]
-
+* xref:1_mule_overview.adoc[1. Opšti pregled Mule-a]
+* xref:2_getting_started_with_mule4.adoc[2. Kako početi sa Mule 4 (praktični fokus)]

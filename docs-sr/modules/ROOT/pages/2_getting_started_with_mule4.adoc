@@ -1,0 +1,142 @@
+:primary-lang: sr
+
+= 2. Kako početi sa Mule 4 (praktični fokus)
+
+U ovom poglavlju kreiraćemo naš prvi Mule 4 projekat korak po korak, testirati ga lokalno i zatim deployovati u cloud, kako bismo prošli čitav razvojni proces od početka do kraja.
+
+Primjer koji ćemo koristiti je jednostavan *„Hello Mule“* API koji prima HTTP zahtjev i vraća tekstualni odgovor. Iako je primjer jednostavan, kroz njega ćemo obuhvatiti ključne korake razvoja integracije.
+
+== Kreiranje novog projekta
+
+Nakon što instaliramo Anypoint Studio i pokrenemo ga, prvo biramo radni prostor (*workspace*) – folder u kojem će se čuvati Mule projekti.
+
+Novi Mule projekat kreiramo kroz meni:
+
+*File → New → Mule Project*
+
+Projektu dodjeljujemo ime, na primjer `HelloMule`, i biramo odgovarajuću verziju Mule runtime-a (npr. Mule 4.4).
+
+Nakon potvrde, Studio kreira prazan projekat sa osnovnom strukturom. U *Package Explorer* panelu vidimo:
+
+* folder projekta,
+* konfiguracione fajlove (ključni je `mule-project.xml`),
+* `src/main/mule` folder u kojem se nalaze Mule flow konfiguracije.
+
+Centralni dio ekrana je *Canvas* – radna površina za grafičko kreiranje flow-ova, dok se sa desne strane nalazi *Mule Palette* sa dostupnim konektorima i komponentama.
+Ispod se nalazi *Properties Editor* za podešavanje detalja komponenti, kao i *Console* za logove aplikacije.
+
+== Dodavanje flow-a i konektora
+
+Svaka Mule aplikacija sastoji se od jednog ili više *flow-ova* – sekvenci komponenti koje obrađuju događaje.
+
+U ovom primjeru napravićemo flow koji:
+
+* prima HTTP zahtjev,
+* vraća statički tekstualni odgovor.
+
+=== HTTP Listener – ulazna tačka
+
+U *Mule Palette* pronalazimo *HTTP module*. Ako modul već nije uključen, dodaje se preko opcije *Add Modules* iz Exchange repozitorijuma.
+
+Iz Palette prevučemo komponentu *HTTP Listener* na Canvas.
+Studio automatski kreira novi flow čiji je *source* upravo HTTP Listener (označen plavom ikonicom na početku flow-a).
+
+HTTP Listener predstavlja ulaznu tačku aplikacije – endpoint koji sluša HTTP zahtjeve na definisanom portu i putanji.
+
+U *Properties* panelu za HTTP Listener kliknemo na dugme `+` kako bismo kreirali konfiguraciju.
+
+Podešavamo sljedeće vrijednosti:
+
+* *Host*: `0.0.0.0` (sluša na svim mrežnim interfejsima),
+* *Port*: `8081`,
+* *Path*: `/hellomule`.
+
+Ovom konfiguracijom dobijamo endpoint dostupan na adresi:
+
+`http://localhost:8081/hellomule`
+
+=== Set Payload – formiranje odgovora
+
+Nakon HTTP Listener-a dodajemo procesorsku komponentu koja će formirati odgovor.
+
+Za ovaj primjer koristimo *Set Payload* komponentu (nalazi se u *Core* modulu).
+
+Komponentu prevlačimo u dio *Process* na Canvas-u, odmah iza HTTP Listener-a.
+
+U *Properties* panelu:
+
+* u polje *Value* unosimo tekst `"Hello Mule"`,
+* isključujemo *Expression* opciju (`fx`) kako bismo unijeli literalnu vrijednost.
+
+Ova komponenta postavlja payload odgovora na statički tekst.
+
+U realnim scenarijima, na ovom mjestu bi se nalazile transformacije, pozivi ka drugim sistemima i poslovna logika, ali ovdje zadržavamo jednostavan primjer.
+
+=== Logger – praćenje izvršavanja
+
+Na kraj flow-a dodajemo *Logger* komponentu (takođe iz *Core* modula).
+
+Logger koristimo da zabilježimo da je zahtjev obrađen. Primjer log poruke može biti:
+
+`Processed request on #[attributes.requestPath]`
+
+Na taj način u logovima vidimo putanju zahtjeva koji je prošao kroz flow.
+
+== Lokalno pokretanje i testiranje
+
+Nakon što sačuvamo projekat (*File → Save All*), aplikaciju pokrećemo lokalno.
+
+Desni klik na Canvas → *Run project HelloMule*.
+
+U *Console* tabu pratimo logove.
+Kada se pojavi poruka da je aplikacija *DEPLOYED* i status `[✔] Deployed`, aplikacija je spremna za testiranje.
+
+Testiranje možemo izvršiti pomoću REST klijenta (npr. Postman) ili direktno iz browsera slanjem HTTP GET zahtjeva na:
+
+`http://localhost:8081/hellomule`
+
+Ako je sve ispravno, dobićemo:
+
+* HTTP status `200 OK`,
+* tijelo odgovora: `Hello Mule`.
+
+To znači da je naša prva Mule aplikacija uspješno razvijena i pokrenuta lokalno.
+
+Nakon testiranja, aplikaciju možemo zaustaviti preko:
+
+Desni klik na Canvas → *Stop Project*.
+
+== Deploy aplikacije na CloudHub
+
+Sljedeći korak je deploy aplikacije u MuleSoft cloud okruženje.
+
+Za to je potreban Anypoint nalog (može i trial nalog).
+
+U *Package Explorer* panelu:
+
+Desni klik na projekat `HelloMule` → *Anypoint Platform → Deploy to CloudHub*.
+
+Studio će zatražiti unos kredencijala za Anypoint Platformu, nakon čega biramo environment (npr. *Sandbox*).
+
+Zatim unosimo ime aplikacije, npr. `hellomule`.
+Ime mora biti jedinstveno na globalnom nivou – Studio će to automatski provjeriti.
+
+Nakon klika na *Deploy*, Studio uploaduje aplikaciju i pokreće je u cloud-u.
+
+Kada je deploy završen, aplikacija je dostupna na adresi oblika:
+
+`http://imeAplikacije.region.cloudhub.io`
+
+Na primjer:
+
+`http://hellomule.us-e2.cloudhub.io/hellomule`
+
+Pozivom ovog URL-a dobijamo isti odgovor kao i lokalno – `"Hello Mule"` – ali sada aplikacija radi u cloud okruženju.
+
+Time smo prošli kompletan razvojni ciklus:
+
+. razvoj aplikacije,
+. lokalno testiranje,
+. deploy u cloud.
+
+U narednim poglavljima fokusiraćemo se na dublje razumijevanje toga šta se dešava *iza kulisa* kada Mule aplikacija radi, kao i na naprednije koncepte i prakse.

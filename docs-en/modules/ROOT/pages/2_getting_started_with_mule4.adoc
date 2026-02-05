@@ -1,0 +1,142 @@
+:primary-lang: sr
+
+= 2. How to Start with Mule 4 (Practical Focus)
+
+In this chapter, we will create our first Mule 4 project step by step, test it locally, and then deploy it to the cloud, covering the entire development process from beginning to end.
+
+The example we will use is a simple *“Hello Mule”* API that receives an HTTP request and returns a textual response. Although the example is simple, through it we will cover key integration development steps.
+
+== Creating a New Project
+
+After installing and launching Anypoint Studio, we first choose a workspace – a folder where Mule projects will be stored.
+
+We create a new Mule project through the menu:
+
+*File → New → Mule Project*
+
+We assign a name to the project, for example `HelloMule`, and select the appropriate Mule runtime version (e.g. Mule 4.4).
+
+After confirming, Studio creates an empty project with a basic structure. In the *Package Explorer* panel we see:
+
+* the project folder,
+* configuration files (the key one being `mule-project.xml`),
+* the `src/main/mule` folder which contains Mule flow configurations.
+
+The central part of the screen is the *Canvas* – the workspace for graphically creating flows, while on the right side there is the *Mule Palette* with available connectors and components.
+Below is the *Properties Editor* for configuring component details, as well as the *Console* for application logs.
+
+== Adding a Flow and Connectors
+
+Every Mule application consists of one or more *flows* – sequences of components that process events.
+
+In this example, we will make a flow that:
+
+* receives an HTTP request,
+* returns a static textual response.
+
+=== HTTP Listener – Entry Point
+
+In the *Mule Palette* we find the *HTTP module*. If the module is not yet included, it can be added via the *Add Modules* option from the Exchange repository.
+
+From the Palette, we drag the *HTTP Listener* component onto the Canvas.
+Studio automatically creates a new flow whose *source* is the HTTP Listener (marked by a blue icon at the start of the flow).
+
+The HTTP Listener represents the application’s entry point – an endpoint that listens for HTTP requests on a defined port and path.
+
+In the *Properties* panel for the HTTP Listener, we click the `+` button to create a configuration.
+
+We set the following values:
+
+* *Host*: `0.0.0.0` (listens on all network interfaces),
+* *Port*: `8081`,
+* *Path*: `/hellomule`.
+
+With this configuration, the endpoint is available at the address:
+
+`http://localhost:8081/hellomule`
+
+=== Set Payload – Forming the Response
+
+After the HTTP Listener we add a processing component that will form the response.
+
+For this example, we use the *Set Payload* component (found in the *Core* module).
+
+We drag the component into the *Process* area on the Canvas, immediately after the HTTP Listener.
+
+In the *Properties* panel:
+
+* in the *Value* field, we enter the text `"Hello Mule"`,
+* we disable the *Expression* option (`fx`) to enter a literal value.
+
+This component sets the payload of the response to static text.
+
+In real scenarios, this place would involve transformations, calls to other systems, and business logic, but here we keep it simple.
+
+=== Logger – Execution Tracking
+
+At the end of the flow, we add a *Logger* component (also from the *Core* module).
+
+We use the Logger to record that the request was processed. An example log message can be:
+
+`Processed request on #[attributes.requestPath]`
+
+This way, in the logs, we see the request path that passed through the flow.
+
+== Local Running and Testing
+
+After saving the project (*File → Save All*), we run the application locally.
+
+Right-click on the Canvas → *Run project HelloMule*.
+
+We monitor the logs in the *Console* tab.
+When the message appears that the application is *DEPLOYED* and the status `[✔] Deployed`, the application is ready for testing.
+
+Testing can be done using a REST client (e.g. Postman) or directly from a browser by sending an HTTP GET request to:
+
+`http://localhost:8081/hellomule`
+
+If everything is correct, we will receive:
+
+* HTTP status `200 OK`,
+* response body: `Hello Mule`.
+
+This means our first Mule application has been successfully developed and run locally.
+
+After testing, we can stop the application via:
+
+Right-click on the Canvas → *Stop Project*.
+
+== Deploying the Application to CloudHub
+
+The next step is to deploy the application in the MuleSoft cloud environment.
+
+An Anypoint account is required (a trial account is also acceptable).
+
+In the *Package Explorer* panel:
+
+Right-click on the `HelloMule` project → *Anypoint Platform → Deploy to CloudHub*.
+
+Studio will request Anypoint Platform credentials, after which we select the environment (e.g. *Sandbox*).
+
+Then we enter the application name, e.g. `hellomule`.
+The name must be globally unique – Studio will check this automatically.
+
+After clicking *Deploy*, Studio uploads the application and runs it in the cloud.
+
+When the deployment is complete, the application is available at an address like:
+
+`http://appName.region.cloudhub.io`
+
+For example:
+
+`http://hellomule.us-e2.cloudhub.io/hellomule`
+
+Calling this URL yields the same response as locally – `"Hello Mule"` – but now the application is running in the cloud environment.
+
+This completes the full development cycle:
+
+. application development,
+. local testing,
+. cloud deployment.
+
+In the following chapters, we will focus on deeper understanding of what happens *behind the scenes* when a Mule application runs, as well as advanced concepts and practices.
