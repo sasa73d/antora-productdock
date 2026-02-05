@@ -1,0 +1,10 @@
+:primary-lang: sr
+
+= 3. First Mule 4 Project – Conceptual Overview
+
+After practically creating a simple flow, we now move on to a conceptual analysis of what we have actually done and introduce the basic concepts of the Mule platform.
+
+In this section, we shift the focus from working through clicks in Anypoint Studio to understanding how Mule operates beneath the surface.
+The goal is to grasp what happens in the background when a Mule application receives a request, processes data, and returns a response.
+
+This conceptual perspective enables building more complex Mule projects on solid foundations, rather than relying solely on visually arranging components without deeper understanding of their behavior.

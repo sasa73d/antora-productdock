@@ -1,0 +1,10 @@
+:primary-lang: sr
+
+= 3. Prvi Mule 4 projekat – Konceptualni pregled
+
+Nakon praktičnog pravljenja jednog jednostavnog flow-a, sada prelazimo na konceptualnu analizu onoga što smo zapravo uradili i uvodimo osnovne pojmove Mule platforme.
+
+U ovom dijelu pomjeramo fokus sa rada kroz klikove u Anypoint Studio-u na razumijevanje kako Mule funkcioniše ispod površine.
+Cilj je da se shvati šta se dešava u pozadini kada Mule aplikacija prima zahtjev, obrađuje podatke i vraća odgovor.
+
+Ovakav konceptualni pogled omogućava izgradnju složenijih Mule projekata na čvrstim temeljima, umjesto oslanjanja isključivo na vizuelno slaganje komponenti bez dubljeg razumijevanja njihovog ponašanja.

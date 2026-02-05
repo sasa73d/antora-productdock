@@ -2,3 +2,4 @@
 * xref:index.adoc[Home]
 * xref:1_mule_overview.adoc[1. General overview of Mule]
 * xref:2_getting_started_with_mule4.adoc[2. How to Start with Mule 4 (Practical Focus)]
+* xref:3_first_mule4_project.adoc[3. First Mule 4 Project – Conceptual Overview]

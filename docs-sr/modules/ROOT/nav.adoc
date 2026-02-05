@@ -3,3 +3,4 @@
 * xref:index.adoc[Početna]
 * xref:1_mule_overview.adoc[1. Opšti pregled Mule-a]
 * xref:2_getting_started_with_mule4.adoc[2. Kako početi sa Mule 4 (praktični fokus)]
+* xref:3_first_mule4_project.adoc[3. Prvi Mule 4 projekat – Konceptualni pregled]
