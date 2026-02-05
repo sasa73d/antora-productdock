@@ -54,6 +54,16 @@ function gitTry(args) {
   return (r.stdout ?? "").toString().trim();
 }
 
+/**
+ * Raw git output helper (DO NOT trim).
+ * Required for -z (NUL-delimited) output.
+ */
+function gitTryRaw(args) {
+  const r = run("git", args, { stdio: "pipe" });
+  if (r.status !== 0) return "";
+  return (r.stdout ?? "").toString();
+}
+
 function nodeScript(scriptFile, args = [], { allowFail = false } = {}) {
   const p = path.join("scripts", scriptFile);
   const r = run(process.execPath, [p, ...args], { stdio: "inherit" });
@@ -87,24 +97,54 @@ function loadDotEnvIfPresent() {
 }
 
 function getStagedNameStatus(patterns) {
-  const out = gitTry(["diff", "--cached", "--name-status", "--", ...patterns]);
+  const out = gitTryRaw([
+    "diff",
+    "--cached",
+    "--name-status",
+    "-z",
+    "--",
+    ...patterns,
+  ]);
   if (!out) return [];
-  return out.split(/\r?\n/).map((l) => {
-    const parts = l.trim().split(/\s+/);
-    const status = parts[0] || "";
-    // Rename/Copy: R100 old new  /  C100 old new
-    const file =
-      (status.startsWith("R") || status.startsWith("C")) && parts.length >= 3
-        ? parts[2] // new path
-        : parts[1];
-    return { status, file };
-  });
+
+  const parts = out.split("\0").filter(Boolean);
+  const res = [];
+
+  for (let i = 0; i < parts.length; ) {
+    const status = (parts[i] || "").trim();
+    i++;
+
+    if (!status) continue;
+
+    // Handle renames / copies (R100 old new, C100 old new)
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const oldPath = parts[i] || "";
+      const newPath = parts[i + 1] || "";
+      i += 2;
+      if (newPath) res.push({ status, file: newPath });
+      else if (oldPath) res.push({ status, file: oldPath });
+      continue;
+    }
+
+    const file = parts[i] || "";
+    i++;
+    if (file) res.push({ status, file });
+  }
+
+  return res;
 }
 
 function getStagedFiles(patterns) {
-  const out = gitTry(["diff", "--cached", "--name-only", "--", ...patterns]);
+  const out = gitTryRaw([
+    "diff",
+    "--cached",
+    "--name-only",
+    "-z",
+    "--",
+    ...patterns,
+  ]);
   if (!out) return [];
-  return out.split(/\r?\n/).filter(Boolean);
+  return out.split("\0").filter(Boolean);
 }
 
 function filePrimaryLang(file) {
@@ -139,6 +179,83 @@ function ensurePrimaryLang(file) {
   const next = `:primary-lang: ${defaultLang}\n\n${txt}`;
   writeFileSync(file, next, "utf8");
   git(["add", file], { stdio: "inherit" });
+}
+
+function isNonAscii(s) {
+  return /[^\x00-\x7F]/.test(s);
+}
+
+/**
+ * Validates Antora page filenames (*.adoc).
+ *
+ * Rules:
+ *  - ASCII only
+ *  - no spaces
+ *  - allowed characters: a-z 0-9 _ -
+ *  - must end with .adoc
+ */
+function isValidPageFileName(filePath) {
+  const base = path.posix.basename(filePath);
+
+  if (!base.endsWith(".adoc")) return { ok: true };
+
+  if (base.includes(" ")) {
+    return { ok: false, reason: "contains spaces" };
+  }
+
+  if (isNonAscii(base)) {
+    return {
+      ok: false,
+      reason: "contains non-ASCII characters (e.g. diacritics)",
+    };
+  }
+
+  const name = base.slice(0, -".adoc".length);
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(name)) {
+    return {
+      ok: false,
+      reason: "contains invalid characters (allowed: a-z, 0-9, '_' and '-')",
+    };
+  }
+
+  return { ok: true };
+}
+
+function abortInvalidPageFileNames(badFiles) {
+  console.log("");
+  console.log("⛔ Commit aborted: invalid Antora page filename(s) detected.");
+  console.log("");
+  console.log(
+    "Antora page filenames are technical identifiers used by git hooks,"
+  );
+  console.log(
+    "navigation sync and translation pipelines. Unsafe names cause unstable builds."
+  );
+  console.log("");
+  console.log("Filename rules for *.adoc pages:");
+  console.log("  - ASCII characters only (no diacritics)");
+  console.log("  - no spaces");
+  console.log("  - allowed characters: a-z, 0-9, '_' and '-'");
+  console.log("  - must end with .adoc");
+  console.log("");
+  console.log("Invalid file(s):");
+  for (const b of badFiles) {
+    console.log(`  - ${b.file}  (${b.reason})`);
+  }
+  console.log("");
+  console.log("How to fix:");
+  console.log(
+    '  1) Rename the file to a safe ASCII name (kebab-case or snake_case).'
+  );
+  console.log(
+    '     Example: "My Page Title.adoc" → "my-page-title.adoc"'
+  );
+  console.log(
+    "  2) Update the corresponding xref target in the relevant nav.adoc."
+  );
+  console.log("  3) Stage the changes and retry the commit.");
+  console.log("");
+  process.exit(1);
 }
 
 function stripStatusPrefixes(s) {
@@ -322,6 +439,22 @@ function detectManualSrEditsForEnPrimary() {
 // ---------------------------- MAIN ----------------------------
 try {
   loadDotEnvIfPresent();
+
+  // --- Filename policy guard (fail-fast) ---
+  const stagedPageCandidates = getStagedFiles([
+    "docs-en/modules/ROOT/pages/*.adoc",
+    "docs-sr/modules/ROOT/pages/*.adoc",
+  ]);
+
+  const badPages = [];
+  for (const f of stagedPageCandidates) {
+    const v = isValidPageFileName(f);
+    if (!v.ok) badPages.push({ file: f, reason: v.reason });
+  }
+
+  if (badPages.length) {
+    abortInvalidPageFileNames(badPages);
+  }
 
   const repoRoot = getRepoRootSafe();
 
