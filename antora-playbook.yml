@@ -16,7 +16,7 @@ content:
 
 ui:
   bundle:
-    url: https://antora-ui-productdock-bef695.gitlab.io/ui/v1.0.8Q/ui-bundle.zip
+    url: https://antora-ui-productdock-bef695.gitlab.io/ui/v1.0.8/ui-bundle.zip
     snapshot: false
 
 output:
