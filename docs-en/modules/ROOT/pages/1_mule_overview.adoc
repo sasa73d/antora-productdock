@@ -2,67 +2,67 @@
 
 = 1. General Overview of Mule
 
-== What is MuleSoft and What Problem Does It Solve
+== What is MuleSoft and what problem does it solve
 
 MuleSoft offers one of the most widespread integration platforms for connecting SaaS and enterprise applications in cloud and on-premise environments.
-In other words, MuleSoft is a platform that provides IT departments with tools for automatic system and data integration, accelerating workflows, and creating digital experiences – all on a unified, simple platform.
+In other words, MuleSoft is a platform that provides IT departments with tools for automatic system and data integration, accelerating workflows and creating digital experiences – all on a single, simple platform.
 
 In modern enterprises, there are many different systems (ERP, CRM, databases, cloud services, internal and external applications) that need to exchange data.
-MuleSoft solves the problem of connecting these diverse systems by providing a scalable, secure, and sustainable integration platform.
+MuleSoft solves the problem of connecting these diverse systems by providing a scalable, secure, and maintainable integration platform.
 
 == What is Mule 4
 
-At the heart of the MuleSoft platform is the *Mule 4 runtime* – an integration engine and development platform for building integration applications and APIs.
-Mule 4 is written in Java and based on an *event-driven architecture (EDA)*; it is a lightweight and scalable engine that automatically manages thread and event execution.
+At the core of the MuleSoft platform is the *Mule 4 runtime* – an integration engine and development platform for building integration applications and APIs.
+Mule 4 is written in Java and is based on an *event-driven architecture (EDA)*; it is a lightweight and scalable engine that automatically manages thread and event execution.
 
 For the developer, this means the focus can shift from low-level details (such as threads, sockets, and memory) to designing integration flows (*flows*) and business logic.
 
-Technically speaking, the Mule runtime uses proven Java technologies underneath (e.g., built on the Spring framework), but the developer does not write a classic Java application.
-Mule provides a higher level of abstraction through visual composition of integration components.
+Technically speaking, the Mule runtime uses proven Java technologies in the background (e.g., it is built on the Spring framework), but the developer does not write a traditional Java application.
+Mule provides a higher level of abstraction through visually composing integration components.
 The goal is to build integrations declaratively and faster, with minimal so-called *“glue” code*.
 
-Mule 4 represents an evolution of the Mule 3 runtime.
-It retains the same key elements (applications, flows, connectors, DataWeave, etc.) but introduces a simpler message model and a richer set of capabilities, reducing the number of concepts that need to be learned and maintained.
+Mule 4 represents the evolution of the Mule 3 runtime.
+It retains the same key elements (applications, flows, connectors, DataWeave, etc.) but introduces a simpler message model and a richer set of capabilities, so there are fewer concepts to learn and maintain.
 
-== Development Tools and Platform
+== Development tools and platform
 
-The official development environment for Mule is *Anypoint Studio* – an Eclipse-based IDE tailored for visual design of Mule applications.
+The official development environment for Mule is *Anypoint Studio* – an Eclipse-based IDE, customized for visually designing Mule applications.
 
 In Anypoint Studio:
 
 * we create Mule projects,
-* add connectors from a rich palette (over 200 ready-made connectors for systems such as Salesforce, SAP, Workday, databases, and more),
-* develop flows by drag-and-drop and component configuration.
+* add connectors from a rich palette (over 200 ready connectors for systems such as Salesforce, SAP, Workday, databases, and others),
+* develop flows using drag-and-drop and component configuration.
 
-Studio comes with all necessary runtime elements (built-in Mule server, pre-installed JDK and Maven) and enables local testing and debugging of applications.
+Studio comes with all necessary runtime elements (embedded Mule server, pre-installed JDK and Maven) and enables local testing and debugging of applications.
 
-MuleSoft also introduced *Anypoint Code Builder* – a new generation IDE based on the Visual Studio Code platform.
-Code Builder provides the same functionality as Studio but is available:
+MuleSoft has also introduced *Anypoint Code Builder* – a new generation IDE based on the Visual Studio Code platform.
+Code Builder provides the same functionalities as Studio but is available:
 
 * as a VS Code extension (desktop),
 * as a cloud IDE within the Anypoint Platform.
 
-This enables developing Mule applications directly in the browser linked to an Anypoint account, providing additional flexibility, especially for team collaboration and working across different operating systems.
+This allows developing Mule applications directly in the browser with connection to an Anypoint account, which brings additional flexibility, especially for teamwork and working on different operating systems.
 
-In addition to local development, MuleSoft provides a central platform for deploying and managing applications – *Anypoint Platform*.
+Besides local development, MuleSoft provides a central platform for deploying and managing applications – *Anypoint Platform*.
 
-Within the platform, *CloudHub* represents a cloud environment (MuleSoft's iPaaS) where Mule applications can be deployed with one click or scripted.
+Within the platform, *CloudHub* represents the cloud environment (MuleSoft’s iPaaS) where Mule applications can be deployed with one click or scripted.
 
-A typical development cycle looks like this:
+The typical development cycle looks like this:
 
-. development and testing locally in Anypoint Studio,
+. develop and test locally in Anypoint Studio,
 . deploy the application to CloudHub (sandbox or production),
-. manage the application via Anypoint Platform tools (e.g., Runtime Manager).
+. manage the application through Anypoint Platform tools (e.g., Runtime Manager).
 
-Studio is directly integrated with Anypoint Platform, allowing cloud deployment of applications directly from the IDE.
-Local development and cloud execution are not separate processes but parts of a unified development cycle.
+Studio is directly integrated with the Anypoint Platform, enabling application deployment to the cloud directly from the IDE.
+Local development and cloud execution are not separate processes but part of a unified development cycle.
 
-== MuleSoft Community and Certification
+== MuleSoft community and certification
 
 Formal certification is not mandatory to start working with MuleSoft.
-However, *MuleSoft Certified Developer (MCD) Level 1* represents a good indicator of the basic knowledge expected of a Mule developer.
+However, *MuleSoft Certified Developer (MCD) Level 1* represents a good indicator of the basic knowledge expected from a Mule developer.
 
-It is recommended to use the domains covered by this certificate as a guide through the material, including:
+It is recommended to use the domains covered by this certification as a guide through the material, including:
 
 * working in Anypoint Studio,
 * flow development,
@@ -72,7 +72,7 @@ It is recommended to use the domains covered by this certificate as a guide thro
 
 The certificate serves as a knowledge check, but learning the technology can begin without it.
 
-The official MuleSoft documentation offers many free resources:
+Official MuleSoft documentation offers a large number of free resources:
 
 * Trailhead modules,
 * official tutorials,
