@@ -74,13 +74,13 @@ Certifikat služi kao provjera znanja, ali učenje tehnologije se može započet
 
 Zvanična MuleSoft dokumentacija nudi veliki broj besplatnih resursa:
 
-* link:https://trailhead.salesforce.com/today[Trailhead moduli]
-* link:https://docs.mulesoft.com/general/[Zvanični tutorijali]
-* link:https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft[MuleSoft Community forumi]
+* link:https://trailhead.salesforce.com/today[Trailhead moduli, window="_blank"]
+* link:https://docs.mulesoft.com/general/[Zvanični tutorijali, window="_blank"]
+* link:https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft[MuleSoft Community forumi, window="_blank"]
 
 koji značajno pomažu početnicima u savladavanju Mule 4 platforme.
 
 
-* link:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja]
+* link:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
 
 
