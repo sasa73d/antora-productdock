@@ -140,3 +140,10 @@ Time smo prošli kompletan razvojni ciklus:
 . deploy u cloud.
 
 U narednim poglavljima fokusiraćemo se na dublje razumijevanje toga šta se dešava *iza kulisa* kada Mule aplikacija radi, kao i na naprednije koncepte i prakse.
+
+
+* link:https://docs.mulesoft.com/studio/[Anypoint Studio dokumentacija, window="_blank"]
+* link:https://anypoint.mulesoft.com/login/signup?apintent=generic[Prijava za CloudHub, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLScqvN5p16Rg4oCx7XVekGpv6xR_4v9D_jkpZsoKGVfsljA-zg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
