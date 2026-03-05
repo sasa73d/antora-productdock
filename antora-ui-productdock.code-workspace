@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../antora-ui-productdock"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}

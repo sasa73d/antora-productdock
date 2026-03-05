@@ -1,81 +1,85 @@
 :primary-lang: sr
 
-= 1. General Overview of Mule
+= 1. Opšti pregled Mule-a f
 
-== What is MuleSoft and what problem does it solve
+== Šta je MuleSoft i koji problem rješava
 
 MuleSoft offers one of the most widespread integration platforms for connecting SaaS and enterprise applications in cloud and on-premise environments.
 In other words, MuleSoft is a platform that provides IT departments with tools for automatic system and data integration, accelerating workflows and creating digital experiences – all on a single, simple platform.
 
-In modern enterprises, there are many different systems (ERP, CRM, databases, cloud services, internal and external applications) that need to exchange data.
-MuleSoft solves the problem of connecting these diverse systems by providing a scalable, secure, and maintainable integration platform.
+Modern enterprises have a multitude of different systems (ERP, CRM, databases, cloud services, internal and external applications) that must exchange data.
+MuleSoft solves the problem of connecting these diverse systems by providing a scalable, secure, and sustainable integration platform.
 
-== What is Mule 4
+== Šta je Mule 4
 
 At the core of the MuleSoft platform is the *Mule 4 runtime* – an integration engine and development platform for building integration applications and APIs.
-Mule 4 is written in Java and is based on an *event-driven architecture (EDA)*; it is a lightweight and scalable engine that automatically manages thread and event execution.
+Mule 4 is written in Java and is based on an *event-driven architecture (EDA)*; it is a lightweight and scalable engine that automatically manages thread execution and events.
 
-For the developer, this means the focus can shift from low-level details (such as threads, sockets, and memory) to designing integration flows (*flows*) and business logic.
+For the developer, this means shifting focus from low-level details (such as threads, sockets, and memory) to designing integration flows (*flows*) and business logic.
 
-Technically speaking, the Mule runtime uses proven Java technologies in the background (e.g., it is built on the Spring framework), but the developer does not write a traditional Java application.
-Mule provides a higher level of abstraction through visually composing integration components.
+Technically, the Mule runtime uses proven Java technologies in the background (e.g., it is built on the Spring framework), but the developer does not write a classic Java application.
+Mule provides a higher level of abstraction through visual composition of integration components.
 The goal is to build integrations declaratively and faster, with minimal so-called *“glue” code*.
 
 Mule 4 represents the evolution of the Mule 3 runtime.
 It retains the same key elements (applications, flows, connectors, DataWeave, etc.) but introduces a simpler message model and a richer set of capabilities, so there are fewer concepts to learn and maintain.
 
-== Development tools and platform
+== Razvojni alati i platforma
 
-The official development environment for Mule is *Anypoint Studio* – an Eclipse-based IDE, customized for visually designing Mule applications.
+The official development environment for Mule is *Anypoint Studio* – an Eclipse-based IDE tailored for visual design of Mule applications.
 
 In Anypoint Studio:
 
 * we create Mule projects,
-* add connectors from a rich palette (over 200 ready connectors for systems such as Salesforce, SAP, Workday, databases, and others),
-* develop flows using drag-and-drop and component configuration.
+* add connectors from a rich palette (over 200 ready-made connectors for systems such as Salesforce, SAP, Workday, databases, and others),
+* develop flows using drag-and-drop method and component configuration.
 
-Studio comes with all necessary runtime elements (embedded Mule server, pre-installed JDK and Maven) and enables local testing and debugging of applications.
+Studio comes with all necessary runtime elements (embedded Mule server, pre-installed JDK, and Maven) and enables local testing and debugging of applications.
 
 MuleSoft has also introduced *Anypoint Code Builder* – a new generation IDE based on the Visual Studio Code platform.
-Code Builder provides the same functionalities as Studio but is available:
+Code Builder provides the same functionalities as Studio, but is available:
 
 * as a VS Code extension (desktop),
 * as a cloud IDE within the Anypoint Platform.
 
-This allows developing Mule applications directly in the browser with connection to an Anypoint account, which brings additional flexibility, especially for teamwork and working on different operating systems.
+This enables developing Mule applications directly in the browser with connection to the Anypoint account, providing additional flexibility, especially for team collaboration and working on different operating systems.
 
-Besides local development, MuleSoft provides a central platform for deploying and managing applications – *Anypoint Platform*.
+In addition to local development, MuleSoft provides a central platform for deployment and application management – *Anypoint Platform*.
 
-Within the platform, *CloudHub* represents the cloud environment (MuleSoft’s iPaaS) where Mule applications can be deployed with one click or scripted.
+Within the platform, *CloudHub* represents the cloud environment (MuleSoft's iPaaS) where Mule applications can be deployed with one click or scripted.
 
-The typical development cycle looks like this:
+A typical development cycle looks like this:
 
-. develop and test locally in Anypoint Studio,
-. deploy the application to CloudHub (sandbox or production),
-. manage the application through Anypoint Platform tools (e.g., Runtime Manager).
+. development and testing locally in Anypoint Studio,
+. deployment of the application to CloudHub (sandbox or production),
+. managing the application through Anypoint Platform tools (e.g., Runtime Manager).
 
-Studio is directly integrated with the Anypoint Platform, enabling application deployment to the cloud directly from the IDE.
-Local development and cloud execution are not separate processes but part of a unified development cycle.
+Studio is directly integrated with Anypoint Platform, which enables cloud deployment directly from the IDE.
+Local development and cloud execution are not separate processes, but parts of a unified development cycle.
 
-== MuleSoft community and certification
+== MuleSoft zajednica i certifikacija
 
-Formal certification is not mandatory to start working with MuleSoft.
-However, *MuleSoft Certified Developer (MCD) Level 1* represents a good indicator of the basic knowledge expected from a Mule developer.
+Starting with MuleSoft does not require formal certification.
+However, the *MuleSoft Certified Developer (MCD) Level 1* represents a good indicator of the basic knowledge expected from a Mule developer.
 
-It is recommended to use the domains covered by this certification as a guide through the material, including:
+It is recommended to use the domains covered by this certificate as a guide for studying, including:
 
 * working in Anypoint Studio,
-* flow development,
+* developing flows,
 * using connectors,
 * basic data transformations,
 * error handling.
 
-The certificate serves as a knowledge check, but learning the technology can begin without it.
+The certificate serves as a knowledge check, but learning the technology can start even without it.
 
 Official MuleSoft documentation offers a large number of free resources:
 
-* Trailhead modules,
-* official tutorials,
-* community forums,
+* link:https://trailhead.salesforce.com/today[Trailhead modules]
+* link:https://docs.mulesoft.com/general/[Official tutorials]
+* link:https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft[MuleSoft Community forums]
 
-which significantly help beginners master the Mule 4 platform.
+which significantly help beginners in mastering the Mule 4 platform.
+
+
+ink:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Short knowledge check quiz]
+
