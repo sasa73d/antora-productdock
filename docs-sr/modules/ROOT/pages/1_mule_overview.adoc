@@ -81,6 +81,6 @@ Zvanična MuleSoft dokumentacija nudi veliki broj besplatnih resursa:
 koji značajno pomažu početnicima u savladavanju Mule 4 platforme.
 
 
-ink:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja]
+* link:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja]
 
 
