@@ -57,7 +57,7 @@ IMPORTANT RULES (MUST FOLLOW):
 - Keep table structure unchanged, only translate the cell text.
 - Do NOT add explanations or comments.
 - Placeholder lines that look like @@PROTECTED_LINE_...@@ must remain EXACTLY unchanged.
-- Keep the :primary-lang: attribute line if present, but the final output must use :primary-lang: sr.
+- Keep metadata lines in place if present, but do not invent extra attributes.
 
 Return ONLY the translated AsciiDoc document, same structure, just with Serbian text where appropriate.
 `.trim();
@@ -74,7 +74,7 @@ STRUCTURE PRESERVATION (CRITICAL):
 - Do NOT change heading markup (=, ==, ===, etc.) at all.
 - Do NOT change roles, attributes, IDs, anchors, xrefs, include directives or macros.
 - Do NOT change or remove any AsciiDoc macros: xref:, include::, image::, etc.
-- Do NOT change attribute line names (:page-...:).
+- Do NOT change attribute line names (:page-...: and similar metadata names).
 - Do NOT change URLs, xrefs targets, file paths or attribute names.
 - Do NOT add, remove or reorder lines.
 
@@ -85,9 +85,6 @@ PROTECTED PLACEHOLDERS (CRITICAL):
 TRANSLATION SCOPE:
 - Translate ONLY human-readable natural language text outside protected placeholders.
 - If translating a sentence would require you to modify any structure, macro, attribute name, code or delimiter, LEAVE THAT PART EXACTLY AS IN THE ORIGINAL ENGLISH.
-
-PRIMARY LANGUAGE MARKER:
-- If the document contains a :primary-lang: attribute, the final output must use :primary-lang: sr.
 
 OUTPUT:
 - Return ONLY the translated AsciiDoc document.
@@ -111,7 +108,7 @@ IMPORTANT RULES (MUST FOLLOW):
 - Keep table structure unchanged, only translate the cell text.
 - Do NOT add explanations or comments.
 - Placeholder lines that look like @@PROTECTED_LINE_...@@ must remain EXACTLY unchanged.
-- Keep the :primary-lang: attribute line if present, but the final output must use :primary-lang: en.
+- Keep metadata lines in place if present, but do not invent extra attributes.
 
 Return ONLY the translated AsciiDoc document, same structure, just with English text where appropriate.
 `.trim();
@@ -128,7 +125,7 @@ STRUCTURE PRESERVATION (CRITICAL):
 - Do NOT change heading markup (=, ==, ===, etc.) at all.
 - Do NOT change roles, attributes, IDs, anchors, xrefs, include directives or macros.
 - Do NOT change or remove any AsciiDoc macros: xref:, include::, image::, etc.
-- Do NOT change attribute line names (:page-...:).
+- Do NOT change attribute line names (:page-...: and similar metadata names).
 - Do NOT change URLs, xrefs targets, file paths or attribute names.
 - Do NOT add, remove or reorder lines.
 
@@ -139,9 +136,6 @@ PROTECTED PLACEHOLDERS (CRITICAL):
 TRANSLATION SCOPE:
 - Translate ONLY human-readable natural language text outside protected placeholders.
 - If translating a sentence would require you to modify any structure, macro, attribute name, code or delimiter, LEAVE THAT PART EXACTLY AS IN THE ORIGINAL SERBIAN.
-
-PRIMARY LANGUAGE MARKER:
-- If the document contains a :primary-lang: attribute, the final output must use :primary-lang: en.
 
 OUTPUT:
 - Return ONLY the translated AsciiDoc document.
@@ -158,6 +152,32 @@ function safeJsonStringify(value) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractAttrValue(text, attrName) {
+  const re = new RegExp(`^:${attrName}:\\s*(.+)\\s*$`, 'im');
+  const m = text.match(re);
+  return m ? (m[1] || '').trim().toLowerCase() : '';
+}
+
+function folderLangFromPath(filePath) {
+  if (filePath.startsWith('docs-en/')) return 'en';
+  if (filePath.startsWith('docs-sr/')) return 'sr';
+  return '';
+}
+
+function getSourceTranslationSource(adocText, inputPath) {
+  const fromAttr = extractAttrValue(adocText, 'translation-source');
+  if (fromAttr === 'en' || fromAttr === 'sr') return fromAttr;
+
+  const fallback = folderLangFromPath(inputPath);
+  if (fallback === 'en' || fallback === 'sr') return fallback;
+
+  return '';
+}
+
+function getTargetPageLang(direction) {
+  return direction === 'sr-en' ? 'en' : 'sr';
 }
 
 function isListingBlockAttributeLine(line) {
@@ -269,28 +289,6 @@ function restoreProtectedBlocks(translatedText, protectedLines) {
   return restored;
 }
 
-function normalizePrimaryLangAttribute(adocText, direction) {
-  const targetLang = direction === 'sr-en' ? 'en' : 'sr';
-  const primaryLangRegex = /^:primary-lang:\s*.+$/m;
-
-  if (primaryLangRegex.test(adocText)) {
-    return adocText.replace(primaryLangRegex, `:primary-lang: ${targetLang}`);
-  }
-
-  const lines = adocText.split('\n');
-
-  if (lines.length > 0 && /^= /.test(lines[0])) {
-    let insertIndex = 1;
-    while (insertIndex < lines.length && /^:[^:]+:/.test(lines[insertIndex])) {
-      insertIndex += 1;
-    }
-    lines.splice(insertIndex, 0, `:primary-lang: ${targetLang}`);
-    return lines.join('\n');
-  }
-
-  return `:primary-lang: ${targetLang}\n${adocText}`;
-}
-
 function collapseExactDuplicatedDocument(text) {
   if (!text || typeof text !== 'string') return text;
 
@@ -360,13 +358,60 @@ function collectOutputTextFromResponse(response) {
   return combined.trim() ? combined : '';
 }
 
+function upsertSingleLineAttr(lines, attrName, attrValue) {
+  const attrRe = new RegExp(`^:${attrName}:\\s*.*$`, 'i');
+  const newLine = `:${attrName}: ${attrValue}`;
+
+  const idx = lines.findIndex((line) => attrRe.test(line));
+  if (idx !== -1) {
+    lines[idx] = newLine;
+    return lines;
+  }
+
+  let insertIndex = 0;
+
+  if (lines.length > 0 && /^= /.test(lines[0])) {
+    insertIndex = 1;
+    while (insertIndex < lines.length && /^:[^:]+:\s*.*$/.test(lines[insertIndex])) {
+      insertIndex += 1;
+    }
+    lines.splice(insertIndex, 0, newLine);
+    return lines;
+  }
+
+  while (insertIndex < lines.length && /^:[^:]+:\s*.*$/.test(lines[insertIndex])) {
+    insertIndex += 1;
+  }
+  lines.splice(insertIndex, 0, newLine);
+  return lines;
+}
+
+function removeLegacyPrimaryLang(lines) {
+  return lines.filter((line) => !/^:primary-lang:\s*.*$/i.test(line));
+}
+
+function normalizeMetadata(adocText, direction, translationSource) {
+  const targetPageLang = getTargetPageLang(direction);
+  let lines = adocText.split('\n');
+
+  lines = removeLegacyPrimaryLang(lines);
+  lines = upsertSingleLineAttr(lines, 'page-lang', targetPageLang);
+
+  if (translationSource === 'en' || translationSource === 'sr') {
+    lines = upsertSingleLineAttr(lines, 'translation-source', translationSource);
+  }
+
+  return lines.join('\n');
+}
+
 /**
  * Translate full AsciiDoc content.
  * @param {string} adocText - Original AsciiDoc content
  * @param {boolean} isSafeMode - Whether to use SAFE MODE instructions
  * @param {'en-sr'|'sr-en'} direction - translation direction
+ * @param {string} translationSource - source of truth for the page pair
  */
-async function translateAdocContent(adocText, isSafeMode, direction) {
+async function translateAdocContent(adocText, isSafeMode, direction, translationSource) {
   let instructions;
   if (direction === 'sr-en') {
     instructions = isSafeMode ? safeModeInstructionsSrEn : normalInstructionsSrEn;
@@ -421,7 +466,7 @@ async function translateAdocContent(adocText, isSafeMode, direction) {
     if (maybeTranslated) {
       let restored = restoreProtectedBlocks(maybeTranslated, protectedLines);
       restored = collapseExactDuplicatedDocument(restored);
-      restored = normalizePrimaryLangAttribute(restored, direction);
+      restored = normalizeMetadata(restored, direction, translationSource);
       return restored;
     }
 
@@ -449,7 +494,7 @@ async function translateAdocContent(adocText, isSafeMode, direction) {
 
   let restored = restoreProtectedBlocks(translated, protectedLines);
   restored = collapseExactDuplicatedDocument(restored);
-  restored = normalizePrimaryLangAttribute(restored, direction);
+  restored = normalizeMetadata(restored, direction, translationSource);
 
   return restored;
 }
@@ -513,13 +558,19 @@ async function main() {
   console.log(`➡️  Direction: ${direction === 'en-sr' ? 'EN → SR' : 'SR → EN'}`);
 
   const adocText = await fs.readFile(inputPath, 'utf8');
+  const translationSource = getSourceTranslationSource(adocText, inputPath);
 
   console.log(
     'Sending content to OpenAI for translation...' +
     (isSafeMode ? ' (SAFE MODE)' : '')
   );
 
-  const translated = await translateAdocContent(adocText, isSafeMode, direction);
+  const translated = await translateAdocContent(
+    adocText,
+    isSafeMode,
+    direction,
+    translationSource
+  );
 
   const outputDir = path.dirname(outputPath);
   await fs.mkdir(outputDir, { recursive: true });

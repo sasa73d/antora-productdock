@@ -5,9 +5,11 @@
 // - CODE_ONLY
 // - TEXT_AND_STRUCTURE
 //
-// For now this is a JS version of the current shell heuristics,
-// extended with basic code-block awareness. Later we will use
-// translation.config.json feature flags more aggressively.
+// Notes:
+// - STRUCTURAL_ONLY means only heading/list markers / metadata / similar non-semantic
+//   structure changed, while normalized human-readable text stayed the same.
+// - CODE_ONLY means all changed lines are inside code/literal/listing blocks.
+// - TEXT_AND_STRUCTURE is the safe fallback for everything else.
 
 import { execSync } from 'child_process';
 import fs from 'fs/promises';
@@ -44,7 +46,18 @@ async function loadConfig() {
       'utf8'
     );
     const parsed = JSON.parse(raw);
-    return { ...defaultConfig, ...parsed };
+    return {
+      ...defaultConfig,
+      ...parsed,
+      features: {
+        ...defaultConfig.features,
+        ...(parsed.features || {}),
+      },
+      languages: {
+        ...defaultConfig.languages,
+        ...(parsed.languages || {}),
+      },
+    };
   } catch {
     return defaultConfig;
   }
@@ -52,17 +65,15 @@ async function loadConfig() {
 
 function getDiff(filePath) {
   try {
-    const output = execSync(`git diff --cached -U0 -- "${filePath}"`, {
+    return execSync(`git diff --cached -U0 -- "${filePath}"`, {
       encoding: 'utf8',
     });
-    return output;
   } catch {
-    // No diff or some error; treat as no changes
     return '';
   }
 }
 
-// Parse diff hunks and return changed line numbers in the "new" (staged) file.
+// Parse diff hunks and return changed line numbers in the new/old staged file.
 function getChangedLineNumbers(diffOutput) {
   const lines = diffOutput.split('\n');
   const changed = [];
@@ -86,11 +97,9 @@ function getChangedLineNumbers(diffOutput) {
       oldLine++;
       newLine++;
     } else if (line.startsWith('-')) {
-      // removed line -> we care about oldLine
       changed.push({ type: 'removed', oldLine, newLine: null });
       oldLine++;
     } else if (line.startsWith('+')) {
-      // added line -> we care about newLine
       changed.push({ type: 'added', oldLine: null, newLine });
       newLine++;
     }
@@ -113,6 +122,7 @@ function extractRemovedAdded(diffOutput) {
     ) {
       continue;
     }
+
     if (line.startsWith('-')) {
       removed.push(line);
     } else if (line.startsWith('+')) {
@@ -123,30 +133,43 @@ function extractRemovedAdded(diffOutput) {
   return { removed, added };
 }
 
+function isMetadataLine(line) {
+  const trimmed = line.trim();
+
+  if (/^:[^:]+:\s*.*$/.test(trimmed)) return true;
+  if (trimmed.startsWith('//')) return true;
+  if (/^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
+
 function normalizeLines(lines) {
   const normalized = [];
 
   for (let line of lines) {
-    // strip leading +/- and whitespace
+    // strip leading diff marker and leading whitespace
     line = line.replace(/^[-+]/, '').trimStart();
 
-    // ignore attributes (:...), comments (//...), and block attrs ([...])
-    if (line.startsWith(':') || line.startsWith('//') || line.startsWith('[')) {
+    if (!line.trim()) continue;
+
+    // Ignore metadata, comments, and block attribute lines
+    if (isMetadataLine(line)) {
       continue;
     }
 
-    // headings: =, ==, === etc. -> treat heading markers as structural only
-    // Example: "== Calling Other Flows" and "=== Calling Other Flows"
-    // should both normalize to "Calling Other Flows"
+    // Headings: =, ==, === etc. -> strip marker only
     if (/^=+\s+/.test(line)) {
       line = line.replace(/^=+\s+/, '').trimEnd();
     } else {
-      // lists: *, **, ., .., 1., 2., #, - at the beginning -> structural only
-      line = line.replace(/^([=*.+0-9#-]+\s*)/, '').trimEnd();
+      // Lists: *, **, ., .., 1., 2., #, - -> strip marker only
+      line = line.replace(/^([*.+0-9#-]+\s*)/, '').trimEnd();
     }
 
-    // keep only lines that contain ANY Unicode letter (Latin, Cyrillic, etc.)
-    // This fixes SR text with diacritics (š, ć, č, đ, ž) and/or Cyrillic.
+    if (!line.trim()) continue;
+
+    // keep only lines that contain any Unicode letter
     if (!/\p{L}/u.test(line)) {
       continue;
     }
@@ -154,55 +177,89 @@ function normalizeLines(lines) {
     normalized.push(line);
   }
 
-  // sort + unique
   const unique = Array.from(new Set(normalized));
   unique.sort((a, b) => a.localeCompare(b, 'en'));
 
   return unique;
 }
 
-// Determine if a given 1-based line number is inside a code/literal block.
-function isLineInCodeBlock(fileLines, lineNumber) {
-  let inSourceBlock = false;
-  let inLiteralDots = false;
+function isListingBlockAttributeLine(line) {
+  const trimmed = line.trim();
+  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
+}
 
-  for (let i = 0; i < fileLines.length; i++) {
-    const line = fileLines[i];
-    const currentLineNumber = i + 1;
+function isBacktickFence(line) {
+  return /^```/.test(line.trim());
+}
 
-    // Handle [source,...] + ---- blocks
-    // When we see "----" and the closest preceding non-empty line is [source,...],
-    // we enter a source block and leave it at the next "----".
-    if (/^\[source[, ]/i.test(line.trim())) {
-      // Look ahead for opening ----
-      if (currentLineNumber + 1 <= fileLines.length) {
-        const nextLine = fileLines[currentLineNumber].trim();
-        if (nextLine === '----') {
-          // We will enter the block on the next line after '----'
-          // but for simplicity we mark from the line AFTER '----'
-          // when we encounter it.
-        }
+function isSupportedDelimiter(line) {
+  const trimmed = line.trim();
+  return trimmed === '----' || trimmed === '....' || isBacktickFence(trimmed);
+}
+
+function findClosingDelimiter(lines, startIndex, openerLine) {
+  const openerTrimmed = openerLine.trim();
+
+  if (isBacktickFence(openerTrimmed)) {
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      if (isBacktickFence(lines[i])) {
+        return i;
       }
     }
+    return -1;
+  }
 
-    if (line.trim() === '----') {
-      // Toggle source block state
-      inSourceBlock = !inSourceBlock;
-      continue;
-    }
-
-    // Literal "...." blocks
-    if (line.trim() === '....') {
-      inLiteralDots = !inLiteralDots;
-      continue;
-    }
-
-    // Now check if this is the line we care about
-    if (currentLineNumber === lineNumber) {
-      return inSourceBlock || inLiteralDots;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (lines[i].trim() === openerTrimmed) {
+      return i;
     }
   }
 
+  return -1;
+}
+
+function collectProtectedBlockRanges(lines) {
+  const ranges = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const currentLine = lines[i];
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
+
+    if (
+      isListingBlockAttributeLine(currentLine) &&
+      nextLine !== null &&
+      isSupportedDelimiter(nextLine)
+    ) {
+      const closingIndex = findClosingDelimiter(lines, i + 1, nextLine);
+      if (closingIndex !== -1) {
+        ranges.push({ start: i + 1, end: closingIndex - 1 });
+        i = closingIndex + 1;
+        continue;
+      }
+    }
+
+    if (isSupportedDelimiter(currentLine)) {
+      const closingIndex = findClosingDelimiter(lines, i, currentLine);
+      if (closingIndex !== -1) {
+        ranges.push({ start: i + 1, end: closingIndex - 1 });
+        i = closingIndex + 1;
+        continue;
+      }
+    }
+
+    i += 1;
+  }
+
+  return ranges;
+}
+
+function isLineInProtectedRange(ranges, lineNumber) {
+  for (const r of ranges) {
+    if (lineNumber >= r.start + 1 && lineNumber <= r.end + 1) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -222,7 +279,7 @@ async function main() {
     process.exit(0);
   }
 
-  // 1) CODE-ONLY DETECTION (FIRST)
+  // 1) CODE-ONLY DETECTION
   const skipCodeOnly =
     config.features && config.features.skipCodeOnlyChanges === true;
 
@@ -230,11 +287,11 @@ async function main() {
   try {
     stagedContent = execSync(`git show :${filePath}`, { encoding: 'utf8' });
   } catch {
-    // fallback to working tree
     stagedContent = await fs.readFile(filePath, 'utf8');
   }
 
   const fileLines = stagedContent.split('\n');
+  const protectedRanges = collectProtectedBlockRanges(fileLines);
   const changedLineNumbers = getChangedLineNumbers(diffOutput);
 
   let anyCode = false;
@@ -244,7 +301,7 @@ async function main() {
     const lineNo = ch.newLine || ch.oldLine;
     if (!lineNo) continue;
 
-    const inCode = isLineInCodeBlock(fileLines, lineNo);
+    const inCode = isLineInProtectedRange(protectedRanges, lineNo);
     if (inCode) {
       anyCode = true;
     } else {
@@ -253,19 +310,18 @@ async function main() {
   }
 
   if (skipCodeOnly && anyCode && !anyNonCode) {
-    // All changed lines are inside code/literal blocks -> code-only change.
     console.log(`STATUS=${STATUS.CODE_ONLY}`);
     process.exit(0);
   }
 
-  // 2) TEXT VS STRUCTURAL (same logic as before)
+  // 2) TEXT VS STRUCTURAL
   const { removed, added } = extractRemovedAdded(diffOutput);
   const normRemoved = normalizeLines(removed);
   const normAdded = normalizeLines(added);
 
-  // FAIL-SAFE:
-  // If there IS a diff, but normalization stripped everything (e.g. non-ASCII language),
-  // we must NOT classify as NO_CHANGES because that would skip translation.
+  // Fail-safe:
+  // If there is a diff, but normalization stripped everything,
+  // do not risk classifying it as NO_CHANGES.
   if (
     (removed.length > 0 || added.length > 0) &&
     normRemoved.length === 0 &&
@@ -275,7 +331,6 @@ async function main() {
     process.exit(0);
   }
 
-  // If no textual content changed at all (after stripping headings/lists etc.)
   if (normRemoved.length === 0 && normAdded.length === 0) {
     console.log(`STATUS=${STATUS.NO_CHANGES}`);
     process.exit(0);

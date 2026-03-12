@@ -1,6 +1,6 @@
 // validate-translation.mjs
-// Validates that the translated AsciiDoc (SR) file preserves the structure
-// of the source (EN) file. Checks:
+// Validates that the translated AsciiDoc target file preserves the structure
+// of the source file. Checks:
 // - Heading markers (=, ==, ===) alignment
 // - Code/literal blocks position and content
 // - Counts of xref:, include::, image:: macros
@@ -46,7 +46,6 @@ function splitLines(content) {
   return content.split('\n');
 }
 
-// Simple heading matcher: captures leading = signs and text
 function matchHeading(line) {
   const m = line.match(/^(\s*)(=+)(\s+)(.+)$/);
   if (!m) return null;
@@ -58,63 +57,85 @@ function matchHeading(line) {
   };
 }
 
-// Detect if line is attribute definition like :page-title: ...
 function extractAttributeName(line) {
   const m = line.match(/^:([^:]+):/);
   return m ? m[1].trim() : null;
 }
 
-// Collect positions and content of code/literal blocks
+function isListingBlockAttributeLine(line) {
+  const trimmed = line.trim();
+  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
+}
+
+function isBacktickFence(line) {
+  return /^```/.test(line.trim());
+}
+
+function isSupportedDelimiter(line) {
+  const trimmed = line.trim();
+  return trimmed === '----' || trimmed === '....' || isBacktickFence(trimmed);
+}
+
+function findClosingDelimiter(lines, startIndex, openerLine) {
+  const openerTrimmed = openerLine.trim();
+
+  if (isBacktickFence(openerTrimmed)) {
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      if (isBacktickFence(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (lines[i].trim() === openerTrimmed) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 function collectCodeBlocks(lines) {
   const blocks = [];
-  let inSource = false;
-  let inLiteral = false;
-  let currentType = null;
-  let start = null;
+  let i = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+  while (i < lines.length) {
+    const currentLine = lines[i];
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
 
-    // Literal "...." blocks
-    if (trimmed === '....') {
-      if (!inLiteral) {
-        // entering literal
-        inLiteral = true;
-        currentType = 'literal';
-        start = i;
-      } else {
-        // leaving literal
-        inLiteral = false;
+    if (
+      isListingBlockAttributeLine(currentLine) &&
+      nextLine !== null &&
+      isSupportedDelimiter(nextLine)
+    ) {
+      const closingIndex = findClosingDelimiter(lines, i + 1, nextLine);
+      if (closingIndex !== -1) {
         blocks.push({
-          type: currentType,
-          start,
-          end: i,
+          type: nextLine.trim() === '....' ? 'literal' : 'source',
+          start: i,
+          end: closingIndex,
         });
-        currentType = null;
-        start = null;
+        i = closingIndex + 1;
+        continue;
       }
-      continue;
     }
 
-    // Source "----" blocks
-    if (trimmed === '----') {
-      if (!inSource) {
-        inSource = true;
-        currentType = 'source';
-        start = i;
-      } else {
-        inSource = false;
+    if (isSupportedDelimiter(currentLine)) {
+      const closingIndex = findClosingDelimiter(lines, i, currentLine);
+      if (closingIndex !== -1) {
         blocks.push({
-          type: currentType,
-          start,
-          end: i,
+          type: currentLine.trim() === '....' ? 'literal' : 'source',
+          start: i,
+          end: closingIndex,
         });
-        currentType = null;
-        start = null;
+        i = closingIndex + 1;
+        continue;
       }
-      continue;
     }
+
+    i += 1;
   }
 
   return blocks;
@@ -126,98 +147,111 @@ function countMatches(text, pattern) {
   return matches ? matches.length : 0;
 }
 
-async function main() {
-  const [, , enPath, srPath] = process.argv;
+function shouldIgnoreAttributeName(name) {
+  const n = (name || '').trim().toLowerCase();
 
-  if (!enPath || !srPath) {
-    console.error('Usage: node validate-translation.mjs <enFile.adoc> <srFile.adoc>');
+  // Ignore legacy attr during migration / cleanup.
+  if (n === 'primary-lang') return true;
+
+  return false;
+}
+
+async function main() {
+  const [, , sourcePath, targetPath] = process.argv;
+
+  if (!sourcePath || !targetPath) {
+    console.error(
+      'Usage: node validate-translation.mjs <sourceFile.adoc> <targetFile.adoc>'
+    );
     process.exit(1);
   }
 
   const config = await loadConfig();
   if (!config.features.postTranslationValidation) {
-    console.log('Validation is disabled by config (postTranslationValidation=false). Skipping.');
+    console.log(
+      'Validation is disabled by config (postTranslationValidation=false). Skipping.'
+    );
     process.exit(0);
   }
 
-  console.log(`Validating translation structure: ${enPath} -> ${srPath}`);
+  console.log(`Validating translation structure: ${sourcePath} -> ${targetPath}`);
 
-  const [enContent, srContent] = await Promise.all([
-    fs.readFile(enPath, 'utf8'),
-    fs.readFile(srPath, 'utf8'),
+  const [sourceContent, targetContent] = await Promise.all([
+    fs.readFile(sourcePath, 'utf8'),
+    fs.readFile(targetPath, 'utf8'),
   ]);
 
-  const enLines = splitLines(enContent);
-  const srLines = splitLines(srContent);
+  const sourceLines = splitLines(sourceContent);
+  const targetLines = splitLines(targetContent);
 
   let hasError = false;
 
   // 1) Heading markers
-  const maxLines = Math.min(enLines.length, srLines.length);
+  const maxLines = Math.min(sourceLines.length, targetLines.length);
   for (let i = 0; i < maxLines; i++) {
-    const enHeading = matchHeading(enLines[i]);
-    const srHeading = matchHeading(srLines[i]);
+    const sourceHeading = matchHeading(sourceLines[i]);
+    const targetHeading = matchHeading(targetLines[i]);
 
-    if (enHeading && srHeading) {
-      if (enHeading.marks !== srHeading.marks) {
+    if (sourceHeading && targetHeading) {
+      if (sourceHeading.marks !== targetHeading.marks) {
         console.error(
-          `ERROR: Heading level mismatch at line ${i + 1}: EN="${enHeading.marks}" SR="${srHeading.marks}"`
+          `ERROR: Heading level mismatch at line ${i + 1}: SOURCE="${sourceHeading.marks}" TARGET="${targetHeading.marks}"`
         );
         hasError = true;
       }
-    } else if (enHeading && !srHeading) {
+    } else if (sourceHeading && !targetHeading) {
       console.error(
-        `ERROR: EN has a heading at line ${i + 1}, but SR does not: "${enLines[i]}"`
+        `ERROR: SOURCE has a heading at line ${i + 1}, but TARGET does not: "${sourceLines[i]}"`
       );
       hasError = true;
-    } else if (!enHeading && srHeading) {
+    } else if (!sourceHeading && targetHeading) {
       console.error(
-        `ERROR: SR has a heading at line ${i + 1}, but EN does not: "${srLines[i]}"`
+        `ERROR: TARGET has a heading at line ${i + 1}, but SOURCE does not: "${targetLines[i]}"`
       );
       hasError = true;
     }
   }
 
   // 2) Code/literal blocks alignment and content
-  const enBlocks = collectCodeBlocks(enLines);
-  const srBlocks = collectCodeBlocks(srLines);
+  const sourceBlocks = collectCodeBlocks(sourceLines);
+  const targetBlocks = collectCodeBlocks(targetLines);
 
-  if (enBlocks.length !== srBlocks.length) {
+  if (sourceBlocks.length !== targetBlocks.length) {
     console.error(
-      `ERROR: Number of code/literal blocks differs: EN=${enBlocks.length}, SR=${srBlocks.length}`
+      `ERROR: Number of code/literal blocks differs: SOURCE=${sourceBlocks.length}, TARGET=${targetBlocks.length}`
     );
     hasError = true;
   } else {
-    for (let i = 0; i < enBlocks.length; i++) {
-      const eb = enBlocks[i];
-      const sb = srBlocks[i];
+    for (let i = 0; i < sourceBlocks.length; i++) {
+      const sb = sourceBlocks[i];
+      const tb = targetBlocks[i];
 
-      if (eb.type !== sb.type) {
+      if (sb.type !== tb.type) {
         console.error(
-          `ERROR: Block type mismatch at block #${i + 1}: EN=${eb.type}, SR=${sb.type}`
+          `ERROR: Block type mismatch at block #${i + 1}: SOURCE=${sb.type}, TARGET=${tb.type}`
         );
         hasError = true;
         continue;
       }
 
-      const enBlockLines = enLines.slice(eb.start, eb.end + 1);
-      const srBlockLines = srLines.slice(sb.start, sb.end + 1);
+      const sourceBlockLines = sourceLines.slice(sb.start, sb.end + 1);
+      const targetBlockLines = targetLines.slice(tb.start, tb.end + 1);
 
-      if (enBlockLines.length !== srBlockLines.length) {
+      if (sourceBlockLines.length !== targetBlockLines.length) {
         console.error(
-          `ERROR: Code block #${i + 1} line count differs: EN=${enBlockLines.length}, SR=${srBlockLines.length}`
+          `ERROR: Code block #${i + 1} line count differs: SOURCE=${sourceBlockLines.length}, TARGET=${targetBlockLines.length}`
         );
         hasError = true;
         continue;
       }
 
-      for (let j = 0; j < enBlockLines.length; j++) {
-        if (enBlockLines[j] !== srBlockLines[j]) {
+      for (let j = 0; j < sourceBlockLines.length; j++) {
+        if (sourceBlockLines[j] !== targetBlockLines[j]) {
           console.error(
-            `ERROR: Code block #${i + 1} mismatch at relative line ${j + 1} (global line ${eb.start + j + 1}).`
+            `ERROR: Code block #${i + 1} mismatch at relative line ${j + 1} (source global line ${sb.start + j + 1}).`
           );
-          console.error(`       EN: "${enBlockLines[j]}"`);
-          console.error(`       SR: "${srBlockLines[j]}"`);
+          console.error(`       SOURCE: "${sourceBlockLines[j]}"`);
+          console.error(`       TARGET: "${targetBlockLines[j]}"`);
           hasError = true;
           break;
         }
@@ -233,49 +267,55 @@ async function main() {
   ];
 
   for (const mc of macroChecks) {
-    const enCount = countMatches(enContent, mc.pattern);
-    const srCount = countMatches(srContent, mc.pattern);
-    if (enCount !== srCount) {
+    const sourceCount = countMatches(sourceContent, mc.pattern);
+    const targetCount = countMatches(targetContent, mc.pattern);
+    if (sourceCount !== targetCount) {
       console.error(
-        `ERROR: Macro count mismatch for "${mc.name}": EN=${enCount}, SR=${srCount}`
+        `ERROR: Macro count mismatch for "${mc.name}": SOURCE=${sourceCount}, TARGET=${targetCount}`
       );
       hasError = true;
     }
   }
 
   // 4) Attribute lines (names only)
-  const enAttrs = new Set();
-  const srAttrs = new Set();
+  const sourceAttrs = new Set();
+  const targetAttrs = new Set();
 
-  for (const line of enLines) {
+  for (const line of sourceLines) {
     const name = extractAttributeName(line);
-    if (name) enAttrs.add(name);
-  }
-  for (const line of srLines) {
-    const name = extractAttributeName(line);
-    if (name) srAttrs.add(name);
+    if (name && !shouldIgnoreAttributeName(name)) {
+      sourceAttrs.add(name);
+    }
   }
 
-  const enOnly = [...enAttrs].filter((n) => !srAttrs.has(n));
-  const srOnly = [...srAttrs].filter((n) => !enAttrs.has(n));
+  for (const line of targetLines) {
+    const name = extractAttributeName(line);
+    if (name && !shouldIgnoreAttributeName(name)) {
+      targetAttrs.add(name);
+    }
+  }
 
-  if (enOnly.length > 0) {
+  const sourceOnly = [...sourceAttrs].filter((n) => !targetAttrs.has(n));
+  const targetOnly = [...targetAttrs].filter((n) => !sourceAttrs.has(n));
+
+  if (sourceOnly.length > 0) {
     console.error(
-      `ERROR: Attributes present only in EN: ${enOnly.join(', ')}`
+      `ERROR: Attributes present only in SOURCE: ${sourceOnly.join(', ')}`
     );
     hasError = true;
   }
-  if (srOnly.length > 0) {
+
+  if (targetOnly.length > 0) {
     console.error(
-      `ERROR: Attributes present only in SR: ${srOnly.join(', ')}`
+      `ERROR: Attributes present only in TARGET: ${targetOnly.join(', ')}`
     );
     hasError = true;
   }
 
-    if (hasError) {
+  if (hasError) {
     console.error('Translation validation FAILED.');
     console.error(
-      'Hint: Check the errors above, fix the SR file structure (or the EN source), then retry the commit.'
+      'Hint: Check the errors above, fix the target file structure (or the source file), then retry the commit.'
     );
     process.exit(1);
   } else {
@@ -288,4 +328,3 @@ main().catch((err) => {
   console.error('Error in validate-translation.mjs:', err);
   process.exit(1);
 });
-

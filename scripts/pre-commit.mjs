@@ -2,17 +2,25 @@
 /**
  * Cross-platform pre-commit hook (Node.js) for Antora EN/SR docs.
  *
- * Mirrors the existing bash pre-commit behavior:
- * - nav PRE-check for NEW primary pages (abort early)
- * - ensure :primary-lang:
- * - primary marker consistency check (docs-en must be primary-lang: en; docs-sr -> sr)
- * - prevent manual edits of SR pages when EN page is primary (unless paired with EN change)
+ * New metadata model:
+ *   :page-lang: en|sr
+ *   :translation-source: en|sr
+ *
+ * Meaning:
+ * - page-lang: actual language of this concrete file
+ * - translation-source: source of truth for the EN/SR page pair
+ *
+ * Behavior:
+ * - nav PRE-check for NEW pages
+ * - ensure page metadata
+ * - enforce metadata consistency
+ * - prevent manual edits on secondary pages
  * - translation pipelines:
- *    EN-primary: docs-en -> docs-sr
- *    SR-primary: docs-sr -> docs-en
+ *    EN-source: docs-en -> docs-sr
+ *    SR-source: docs-sr -> docs-en
  * - SAFE fallback logic depending on TRANSLATION_MODE
- * - language detection for primary pages (new by default)
- * - format all staged .adoc files
+ * - language detection for source pages
+ * - format staged .adoc files
  * - nav POST validation (+ stage nav files)
  *
  * Temp workflow:
@@ -38,12 +46,11 @@ import {
 import path from "node:path";
 
 function run(cmd, args, opts = {}) {
-  const res = spawnSync(cmd, args, {
+  return spawnSync(cmd, args, {
     encoding: "utf8",
     stdio: opts.stdio ?? "pipe",
     shell: false,
   });
-  return res;
 }
 
 function runOk(cmd, args, opts = {}) {
@@ -51,7 +58,9 @@ function runOk(cmd, args, opts = {}) {
   if (r.status !== 0) {
     const err = r.stderr?.trim();
     if (err) process.stderr.write(err + "\n");
-    throw Object.assign(new Error(`${cmd} ${args.join(" ")} failed`), { status: r.status ?? 1 });
+    throw Object.assign(new Error(`${cmd} ${args.join(" ")} failed`), {
+      status: r.status ?? 1,
+    });
   }
   return r.stdout?.toString().trim() ?? "";
 }
@@ -66,10 +75,6 @@ function gitTry(args) {
   return (r.stdout ?? "").toString().trim();
 }
 
-/**
- * Raw git output helper (DO NOT trim).
- * Required for -z (NUL-delimited) output.
- */
 function gitTryRaw(args) {
   const r = run("git", args, { stdio: "pipe" });
   if (r.status !== 0) return "";
@@ -80,7 +85,9 @@ function nodeScript(scriptFile, args = [], { allowFail = false } = {}) {
   const p = path.join("scripts", scriptFile);
   const r = run(process.execPath, [p, ...args], { stdio: "inherit" });
   if (!allowFail && r.status !== 0) {
-    throw Object.assign(new Error(`node ${p} failed`), { status: r.status ?? 1 });
+    throw Object.assign(new Error(`node ${p} failed`), {
+      status: r.status ?? 1,
+    });
   }
   return r.status ?? 0;
 }
@@ -89,11 +96,14 @@ function loadDotEnvIfPresent() {
   if (!existsSync(".env")) return;
   console.log("ℹ️  Loading environment variables from .env...");
   const content = readFileSync(".env", "utf8");
+
   for (const raw of content.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
+
     const eq = line.indexOf("=");
     if (eq <= 0) continue;
+
     const key = line.slice(0, eq).trim();
     let val = line.slice(eq + 1).trim();
 
@@ -104,7 +114,9 @@ function loadDotEnvIfPresent() {
       val = val.slice(1, -1);
     }
 
-    if (!(key in process.env)) process.env[key] = val;
+    if (!(key in process.env)) {
+      process.env[key] = val;
+    }
   }
 }
 
@@ -128,7 +140,6 @@ function getStagedNameStatus(patterns) {
 
     if (!status) continue;
 
-    // Handle renames / copies (R100 old new, C100 old new)
     if (status.startsWith("R") || status.startsWith("C")) {
       const oldPath = parts[i] || "";
       const newPath = parts[i + 1] || "";
@@ -159,52 +170,67 @@ function getStagedFiles(patterns) {
   return out.split("\0").filter(Boolean);
 }
 
-function filePrimaryLang(file) {
+function readFileSafe(file) {
   try {
-    const txt = readFileSync(file, "utf8");
-    const m = txt.match(/^:primary-lang:\s*(.+)\s*$/im);
-    if (!m) return "";
-    const v = (m[1] || "").trim().toLowerCase();
-    if (v.startsWith("en")) return "en";
-    if (v.startsWith("sr")) return "sr";
-    return v;
+    return readFileSync(file, "utf8");
   } catch {
     return "";
   }
 }
 
-function ensurePrimaryLang(file) {
-  // nav.adoc is structural — never add :primary-lang: to it
+function extractAttrValue(content, attrName) {
+  const re = new RegExp(`^:${attrName}:\\s*(.+)\\s*$`, "im");
+  const m = content.match(re);
+  return m ? (m[1] || "").trim().toLowerCase() : "";
+}
+
+function fileMeta(file) {
+  const txt = readFileSafe(file);
+  return {
+    pageLang: extractAttrValue(txt, "page-lang"),
+    translationSource: extractAttrValue(txt, "translation-source"),
+  };
+}
+
+function defaultLangFromFolder(file) {
+  if (file.startsWith("docs-en/")) return "en";
+  if (file.startsWith("docs-sr/")) return "sr";
+  return "";
+}
+
+function ensureMetadata(file) {
   if (file.endsWith("/nav.adoc")) return;
   if (!existsSync(file)) return;
 
-  const txt = readFileSync(file, "utf8");
-  if (/^:primary-lang:/im.test(txt)) return;
+  const txt = readFileSafe(file);
+  const folderLang = defaultLangFromFolder(file);
+  if (!folderLang) return;
 
-  let defaultLang = "";
-  if (file.startsWith("docs-en/")) defaultLang = "en";
-  else if (file.startsWith("docs-sr/")) defaultLang = "sr";
-  else return;
+  let next = txt;
+  let changed = false;
 
-  console.log(`🏷️  Adding :primary-lang: ${defaultLang} to ${file}`);
-  const next = `:primary-lang: ${defaultLang}\n\n${txt}`;
-  writeFileSync(file, next, "utf8");
-  git(["add", file], { stdio: "inherit" });
+  if (!/^:page-lang:/im.test(next)) {
+    console.log(`🏷️  Adding :page-lang: ${folderLang} to ${file}`);
+    next = `:page-lang: ${folderLang}\n${next}`;
+    changed = true;
+  }
+
+  if (!/^:translation-source:/im.test(next)) {
+    console.log(`🏷️  Adding :translation-source: ${folderLang} to ${file}`);
+    next = `:translation-source: ${folderLang}\n${next}`;
+    changed = true;
+  }
+
+  if (changed) {
+    writeFileSync(file, next.replace(/^\n+/, ""), "utf8");
+    git(["add", file], { stdio: "inherit" });
+  }
 }
 
 function isNonAscii(s) {
   return /[^\x00-\x7F]/.test(s);
 }
 
-/**
- * Validates Antora page filenames (*.adoc).
- *
- * Rules:
- *  - ASCII only
- *  - no spaces
- *  - allowed characters: a-z 0-9 _ -
- *  - must end with .adoc
- */
 function isValidPageFileName(filePath) {
   const base = path.posix.basename(filePath);
 
@@ -236,12 +262,8 @@ function abortInvalidPageFileNames(badFiles) {
   console.log("");
   console.log("⛔ Commit aborted: invalid Antora page filename(s) detected.");
   console.log("");
-  console.log(
-    "Antora page filenames are technical identifiers used by git hooks,"
-  );
-  console.log(
-    "navigation sync and translation pipelines. Unsafe names cause unstable builds."
-  );
+  console.log("Antora page filenames are technical identifiers used by git hooks,");
+  console.log("navigation sync and translation pipelines. Unsafe names cause unstable builds.");
   console.log("");
   console.log("Filename rules for *.adoc pages:");
   console.log("  - ASCII characters only (no diacritics)");
@@ -255,15 +277,9 @@ function abortInvalidPageFileNames(badFiles) {
   }
   console.log("");
   console.log("How to fix:");
-  console.log(
-    '  1) Rename the file to a safe ASCII name (kebab-case or snake_case).'
-  );
-  console.log(
-    '     Example: "My Page Title.adoc" → "my-page-title.adoc"'
-  );
-  console.log(
-    "  2) Update the corresponding xref target in the relevant nav.adoc."
-  );
+  console.log('  1) Rename the file to a safe ASCII name (kebab-case or snake_case).');
+  console.log('     Example: "My Page Title.adoc" → "my-page-title.adoc"');
+  console.log("  2) Update the corresponding xref target in the relevant nav.adoc.");
   console.log("  3) Stage the changes and retry the commit.");
   console.log("");
   process.exit(1);
@@ -309,7 +325,9 @@ function abortMissingEnvOrKey({ reason }) {
 }
 
 function readLedgerTotalsSync(ledgerPath) {
-  if (!existsSync(ledgerPath)) return { prompt: 0, completion: 0, total: 0, requests: 0 };
+  if (!existsSync(ledgerPath)) {
+    return { prompt: 0, completion: 0, total: 0, requests: 0 };
+  }
 
   const text = readFileSync(ledgerPath, "utf8");
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -356,91 +374,178 @@ function runLanguageCheck(file, status, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCL
     });
   }
 
-  console.log(`🧪 Running language detection for primary page: ${file}`);
-  const r = run(process.execPath, [path.join("scripts", "detect-language.mjs"), file], {
-    stdio: "inherit",
-  });
+  console.log(`🧪 Running language detection for source page: ${file}`);
+  const r = run(
+    process.execPath,
+    [path.join("scripts", "detect-language.mjs"), file],
+    { stdio: "inherit" }
+  );
 
   if (r.status === 10) {
     if (LANGUAGE_CHECK_MODE === "strict") {
-      console.log(`⛔ Language mismatch detected for primary page: ${file}`);
-      console.log("   The text language does not match the :primary-lang: marker.");
-      console.log("   Please fix the language (or adjust :primary-lang:) and retry the commit.");
+      console.log(`⛔ Language mismatch detected for source page: ${file}`);
+      console.log("   The detected language does not match the :page-lang: marker.");
+      console.log("   Please fix the page language (or adjust :page-lang:) and retry the commit.");
       process.exit(1);
     } else {
-      console.log(`⚠️  Language mismatch detected for primary page (warning mode): ${file}`);
+      console.log(`⚠️  Language mismatch detected for source page (warning mode): ${file}`);
     }
   } else if (r.status !== 0) {
     console.log(`⚠️  Language detection failed for ${file} (see message above). Skipping language check.`);
   }
 }
 
-function checkPrimaryMarkerConsistency(stagedEn, stagedSr) {
+function pagePairFor(file) {
+  if (file.startsWith("docs-en/")) {
+    return {
+      self: file,
+      other: file.replace(/^docs-en\//, "docs-sr/"),
+      selfLang: "en",
+      otherLang: "sr",
+    };
+  }
+  if (file.startsWith("docs-sr/")) {
+    return {
+      self: file,
+      other: file.replace(/^docs-sr\//, "docs-en/"),
+      selfLang: "sr",
+      otherLang: "en",
+    };
+  }
+  return null;
+}
+
+function checkMetadataConsistency(stagedEn, stagedSr) {
   const bad = [];
 
-  for (const f of stagedEn) {
+  for (const f of [...stagedEn, ...stagedSr]) {
     if (!existsSync(f)) continue;
-    const pl = filePrimaryLang(f);
-    if (pl && pl !== "en") bad.push(`${f} (folder=docs-en, :primary-lang: ${pl})`);
-  }
-  for (const f of stagedSr) {
-    if (!existsSync(f)) continue;
-    const pl = filePrimaryLang(f);
-    if (pl && pl !== "sr") bad.push(`${f} (folder=docs-sr, :primary-lang: ${pl})`);
+    if (f.endsWith("/nav.adoc")) continue;
+
+    const folderLang = defaultLangFromFolder(f);
+    const meta = fileMeta(f);
+
+    if (!meta.pageLang) {
+      bad.push(`${f} (missing :page-lang:)`);
+    } else if (meta.pageLang !== folderLang) {
+      bad.push(`${f} (folder=${folderLang}, :page-lang: ${meta.pageLang})`);
+    }
+
+    if (!meta.translationSource) {
+      bad.push(`${f} (missing :translation-source:)`);
+    } else if (!["en", "sr"].includes(meta.translationSource)) {
+      bad.push(`${f} (:translation-source: ${meta.translationSource} is invalid)`);
+    }
   }
 
   if (bad.length) {
-    console.log("⛔ Inconsistent :primary-lang: marker detected for the following files:");
+    console.log("⛔ Metadata consistency check failed for the following files:");
     for (const b of bad) console.log(`   - ${b}`);
     console.log("");
-    console.log("Explanation:");
-    console.log("  * Files under docs-en/ should normally have :primary-lang: en");
-    console.log("  * Files under docs-sr/ should normally have :primary-lang: sr");
+    console.log("Expected:");
+    console.log("  * docs-en/... files must have :page-lang: en");
+    console.log("  * docs-sr/... files must have :page-lang: sr");
+    console.log("  * :translation-source: must be either en or sr");
     console.log("");
-    console.log("How to fix:");
-    console.log("  1) Decide which language is really the PRIMARY source for this page.");
-    console.log("  2) Either:");
-    console.log("     - Fix the :primary-lang: value in the file to match its folder, OR");
-    console.log("     - Delete the secondary file and let the pre-commit hook regenerate it");
-    console.log("        from the true primary page.");
-    console.log("");
-    console.log("Aborting commit due to inconsistent primary marker.");
     process.exit(1);
   }
 }
 
-function detectManualSrEditsForEnPrimary() {
-  const stagedSrPages = getStagedFiles(["docs-sr/modules/ROOT/pages/*.adoc"]);
+function checkPairTranslationSourceConsistency(stagedEn, stagedSr) {
+  const touched = new Set([...stagedEn, ...stagedSr].filter((f) => !f.endsWith("/nav.adoc")));
+
+  const pairs = new Map();
+
+  for (const f of touched) {
+    const pair = pagePairFor(f);
+    if (!pair) continue;
+    const key = pair.self.replace(/^docs-(en|sr)\//, "");
+    if (!pairs.has(key)) {
+      pairs.set(key, {
+        en: key.startsWith("modules/") ? `docs-en/${key}` : "",
+        sr: key.startsWith("modules/") ? `docs-sr/${key}` : "",
+      });
+    }
+  }
+
+  const bad = [];
+
+  for (const entry of pairs.values()) {
+    const enPath = entry.en;
+    const srPath = entry.sr;
+
+    if (!enPath || !srPath) continue;
+    if (!existsSync(enPath) || !existsSync(srPath)) continue;
+
+    const enMeta = fileMeta(enPath);
+    const srMeta = fileMeta(srPath);
+
+    if (
+      enMeta.translationSource &&
+      srMeta.translationSource &&
+      enMeta.translationSource !== srMeta.translationSource
+    ) {
+      bad.push(
+        `${enPath} (:translation-source: ${enMeta.translationSource}) <> ${srPath} (:translation-source: ${srMeta.translationSource})`
+      );
+    }
+  }
+
+  if (bad.length) {
+    console.log("⛔ EN/SR page pairs have inconsistent :translation-source: values:");
+    for (const b of bad) console.log(`   - ${b}`);
+    console.log("");
+    console.log("Both files of the same page pair must share the same :translation-source: value.");
+    console.log("");
+    process.exit(1);
+  }
+}
+
+function detectManualEditsOnSecondaryPages() {
+  const stagedPages = getStagedFiles([
+    "docs-en/modules/ROOT/*.adoc",
+    "docs-en/modules/ROOT/pages/*.adoc",
+    "docs-sr/modules/ROOT/*.adoc",
+    "docs-sr/modules/ROOT/pages/*.adoc",
+  ]).filter((f) => f.endsWith(".adoc") && !f.endsWith("/nav.adoc"));
+
   const manual = [];
 
-  for (const srFull of stagedSrPages) {
-    const rel = srFull.replace(/^docs-sr\/modules\/ROOT\/pages\//, "");
-    const enPath = `docs-en/modules/ROOT/pages/${rel}`;
+  for (const file of stagedPages) {
+    if (!existsSync(file)) continue;
 
-    if (!existsSync(enPath)) continue;
+    const pair = pagePairFor(file);
+    if (!pair) continue;
 
-    const enPrimary = filePrimaryLang(enPath) === "en";
-    if (!enPrimary) continue;
+    const meta = fileMeta(file);
+    if (!meta.translationSource) continue;
 
-    const enStaged = getStagedFiles([enPath]).length > 0;
-    if (enStaged) continue;
+    const isSecondary = meta.translationSource !== pair.selfLang;
+    if (!isSecondary) continue;
 
-    manual.push(srFull);
+    const sourceFile = meta.translationSource === "en" ? pair.other : pair.other;
+
+    const sourceStaged = getStagedFiles([sourceFile]).length > 0;
+    if (sourceStaged) continue;
+
+    manual.push({
+      file,
+      sourceFile,
+      translationSource: meta.translationSource,
+    });
   }
 
   if (manual.length) {
-    console.log("⛔ Detected manual changes in SR (.adoc) files for EN-primary page:");
-    for (const f of manual) console.log(`   - ${f}`);
+    console.log("⛔ Detected manual changes in secondary translated pages:");
+    for (const x of manual) {
+      console.log(`   - ${x.file} (source of truth: ${x.sourceFile})`);
+    }
     console.log("");
-    console.log("This project treats EN files under docs-en/ as the single source of truth");
-    console.log("for these pages (primary-lang: en). SR files under docs-sr/ are generated");
-    console.log("automatically from EN during pre-commit.");
+    console.log("This project allows manual edits only in the source-of-truth page.");
+    console.log("Secondary translated pages are generated automatically during pre-commit.");
     console.log("");
-    console.log("For the files above, please undo the changes in the SR files and apply your");
-    console.log("edits to the matching EN files instead. Then let the pre-commit hook");
-    console.log("regenerate the SR versions.");
+    console.log("Please move your edits to the source page and retry the commit.");
     console.log("");
-    console.log("Aborting commit.");
     process.exit(1);
   }
 }
@@ -469,7 +574,6 @@ function promoteTempFile(tempPath, finalPath) {
   if (!existsSync(tempPath)) {
     throw new Error(`Temp file not found for promotion: ${tempPath}`);
   }
-
   ensureParentDir(finalPath);
   copyFileSync(tempPath, finalPath);
 }
@@ -489,7 +593,9 @@ function stagePromotedFile(tempPath, finalPath) {
 }
 
 function validateOrAbort(sourceFile, tempTargetFile, failMessageLines) {
-  const code = nodeScript("validate-translation.mjs", [sourceFile, tempTargetFile], { allowFail: true });
+  const code = nodeScript("validate-translation.mjs", [sourceFile, tempTargetFile], {
+    allowFail: true,
+  });
   if (code === 0) return;
 
   for (const line of failMessageLines) {
@@ -498,13 +604,17 @@ function validateOrAbort(sourceFile, tempTargetFile, failMessageLines) {
   process.exit(1);
 }
 
+function getTranslationSource(file) {
+  const meta = fileMeta(file);
+  return meta.translationSource || defaultLangFromFolder(file);
+}
+
 // ---------------------------- MAIN ----------------------------
 let __TEMP_ROOT__ = "";
 
 try {
   loadDotEnvIfPresent();
 
-  // --- Filename policy guard (fail-fast) ---
   const stagedPageCandidates = getStagedFiles([
     "docs-en/modules/ROOT/pages/*.adoc",
     "docs-sr/modules/ROOT/pages/*.adoc",
@@ -561,7 +671,9 @@ try {
 
   if (newPages.length) {
     if (existsSync(path.join("scripts", "validate-nav.mjs"))) {
-      const code = nodeScript("validate-nav.mjs", ["--pre", ...newPages], { allowFail: true });
+      const code = nodeScript("validate-nav.mjs", ["--pre", ...newPages], {
+        allowFail: true,
+      });
       if (code !== 0) {
         console.log("⛔ pre-commit: navigation PRE-check failed. Aborting commit.");
         process.exit(code);
@@ -576,38 +688,45 @@ try {
   console.log("🔁 pre-commit: checking docs .adoc files for translation & sync...");
   console.log(`ℹ️  TRANSLATION_MODE=${TRANSLATION_MODE}`);
 
-  const stagedEnAll = getStagedFiles(["docs-en/**/*.adoc", "docs-en/**/**/*.adoc"]).filter((f) => f.endsWith(".adoc"));
-  const stagedSrAll = getStagedFiles(["docs-sr/**/*.adoc", "docs-sr/**/**/*.adoc"]).filter((f) => f.endsWith(".adoc"));
+  const stagedEnAll = getStagedFiles(["docs-en/**/*.adoc", "docs-en/**/**/*.adoc"]).filter(
+    (f) => f.endsWith(".adoc")
+  );
+  const stagedSrAll = getStagedFiles(["docs-sr/**/*.adoc", "docs-sr/**/**/*.adoc"]).filter(
+    (f) => f.endsWith(".adoc")
+  );
 
   for (const f of [...new Set([...stagedEnAll, ...stagedSrAll])]) {
-    ensurePrimaryLang(f);
+    ensureMetadata(f);
   }
 
-  checkPrimaryMarkerConsistency(stagedEnAll, stagedSrAll);
-  detectManualSrEditsForEnPrimary();
+  checkMetadataConsistency(stagedEnAll, stagedSrAll);
+  checkPairTranslationSourceConsistency(stagedEnAll, stagedSrAll);
+  detectManualEditsOnSecondaryPages();
 
-  const EN_PRIMARY_FILES = getStagedNameStatus([
+  const EN_PAGES = getStagedNameStatus([
     "docs-en/modules/ROOT/*.adoc",
     "docs-en/modules/ROOT/pages/*.adoc",
   ])
     .filter(({ status, file }) => status !== "D" && file && !file.endsWith("/nav.adoc"))
     .map(({ file }) => file);
 
-  const SR_PRIMARY_FILES = getStagedNameStatus([
+  const SR_PAGES = getStagedNameStatus([
     "docs-sr/modules/ROOT/*.adoc",
     "docs-sr/modules/ROOT/pages/*.adoc",
   ])
     .filter(({ status, file }) => status !== "D" && file && !file.endsWith("/nav.adoc"))
     .map(({ file }) => file);
 
-  // ---------------- EN-primary pipeline ----------------
-  if (TRANSLATION_MODE !== "off" && EN_PRIMARY_FILES.length) {
-    console.log("📄 Staged EN .adoc files (EN-primary pipeline):");
-    for (const f of EN_PRIMARY_FILES) console.log(f);
+  const EN_SOURCE_FILES = EN_PAGES.filter((f) => getTranslationSource(f) === "en");
+  const SR_SOURCE_FILES = SR_PAGES.filter((f) => getTranslationSource(f) === "sr");
+
+  if (TRANSLATION_MODE !== "off" && EN_SOURCE_FILES.length) {
+    console.log("📄 Staged EN source-of-truth .adoc files:");
+    for (const f of EN_SOURCE_FILES) console.log(f);
   }
 
   if (TRANSLATION_MODE !== "off") {
-    for (const FILE of EN_PRIMARY_FILES) {
+    for (const FILE of EN_SOURCE_FILES) {
       const ns = getStagedNameStatus([FILE])[0];
       const STATUS = ns?.status ?? "";
 
@@ -616,11 +735,16 @@ try {
       const SR_FILE = FILE.replace(/^docs-en\//, "docs-sr/");
       const TEMP_SR_FILE = toTempPath(__TEMP_ROOT__, SR_FILE);
 
-      const r = run(process.execPath, [path.join("scripts", "analyze-changes.mjs"), FILE, SR_FILE], {
-        stdio: "pipe",
-        shell: false,
-        encoding: "utf8",
-      });
+      const r = run(
+        process.execPath,
+        [path.join("scripts", "analyze-changes.mjs"), FILE, SR_FILE],
+        {
+          stdio: "pipe",
+          shell: false,
+          encoding: "utf8",
+        }
+      );
+
       const raw = (r.stdout ?? "").toString().trim();
       const ANALYZER_RESULT = stripStatusPrefixes(raw);
 
@@ -630,27 +754,21 @@ try {
           break;
 
         case "STRUCTURAL_ONLY":
-          console.log(`ℹ️  Analyzer result (EN-primary): STRUCTURAL_ONLY for ${FILE}. Syncing structure EN -> SR without AI.`);
+          console.log(`ℹ️  Analyzer result (EN-source): STRUCTURAL_ONLY for ${FILE}. Syncing structure EN -> SR without AI.`);
           STRUCTURAL_ONLY_COUNT++;
-
-          // Requires sync-structure.mjs to support:
-          // node sync-structure.mjs <source> <existing-target> <output-target> --direction=en-sr
           nodeScript("sync-structure.mjs", [FILE, SR_FILE, TEMP_SR_FILE, "--direction=en-sr"]);
           stagePromotedFile(TEMP_SR_FILE, SR_FILE);
           break;
 
         case "CODE_ONLY":
-          console.log(`ℹ️  Analyzer result (EN-primary): CODE_ONLY for ${FILE}. Syncing code blocks EN -> SR without AI.`);
+          console.log(`ℹ️  Analyzer result (EN-source): CODE_ONLY for ${FILE}. Syncing code blocks EN -> SR without AI.`);
           CODE_ONLY_COUNT++;
-
-          // Requires sync-code-blocks.mjs to support:
-          // node sync-code-blocks.mjs <source> <existing-target> <output-target> --direction=en-sr
           nodeScript("sync-code-blocks.mjs", [FILE, SR_FILE, TEMP_SR_FILE, "--direction=en-sr"]);
           stagePromotedFile(TEMP_SR_FILE, SR_FILE);
           break;
 
         case "TEXT_AND_STRUCTURE":
-          console.log(`ℹ️  Analyzer result (EN-primary): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation EN -> SR.`);
+          console.log(`ℹ️  Analyzer result (EN-source): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation EN -> SR.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
           if (!hasOpenAIKey()) {
@@ -671,17 +789,24 @@ try {
             console.log(`🌐 Translating (EN → SR, NORMAL MODE): ${FILE}`);
             nodeScript("translate-adoc.mjs", [FILE, TEMP_SR_FILE, "--direction=en-sr"]);
 
-            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], { allowFail: true });
+            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], {
+              allowFail: true,
+            });
+
             if (v1 !== 0) {
               console.log(`⚠️ Validation failed for ${FILE} in EN → SR NORMAL MODE. Retrying in SAFE MODE...`);
               nodeScript("translate-adoc.mjs", [FILE, TEMP_SR_FILE, "--direction=en-sr", "--safe"]);
 
-              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], { allowFail: true });
+              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], {
+                allowFail: true,
+              });
+
               if (v2 !== 0) {
                 console.log(`❌ SAFE MODE translation validation FAILED for ${FILE} (EN → SR).`);
                 console.log("    Please inspect the EN/SR files and fix manually.");
                 process.exit(1);
               }
+
               SAFE_FALLBACK_COUNT++;
             }
           }
@@ -691,23 +816,22 @@ try {
 
         default:
           if (ANALYZER_RESULT) {
-            console.log(`⚠️  Unknown analyzer result for EN-primary page ${FILE}: STATUS=${ANALYZER_RESULT}`);
+            console.log(`⚠️  Unknown analyzer result for EN-source page ${FILE}: STATUS=${ANALYZER_RESULT}`);
           } else {
-            console.log(`⚠️  Analyzer did not return a status for EN-primary page ${FILE}. Skipping.`);
+            console.log(`⚠️  Analyzer did not return a status for EN-source page ${FILE}. Skipping.`);
           }
           break;
       }
     }
   }
 
-  // ---------------- SR-primary pipeline ----------------
-  if (TRANSLATION_MODE !== "off" && SR_PRIMARY_FILES.length) {
-    console.log("🔍 Analyzing SR-primary page changes in:");
-    for (const f of SR_PRIMARY_FILES) console.log(f);
+  if (TRANSLATION_MODE !== "off" && SR_SOURCE_FILES.length) {
+    console.log("🔍 Analyzing SR source-of-truth page changes in:");
+    for (const f of SR_SOURCE_FILES) console.log(f);
   }
 
   if (TRANSLATION_MODE !== "off") {
-    for (const FILE of SR_PRIMARY_FILES) {
+    for (const FILE of SR_SOURCE_FILES) {
       const ns = getStagedNameStatus([FILE])[0];
       const STATUS = ns?.status ?? "";
 
@@ -716,11 +840,16 @@ try {
       const EN_FILE = FILE.replace(/^docs-sr\//, "docs-en/");
       const TEMP_EN_FILE = toTempPath(__TEMP_ROOT__, EN_FILE);
 
-      const r = run(process.execPath, [path.join("scripts", "analyze-changes.mjs"), FILE, EN_FILE], {
-        stdio: "pipe",
-        shell: false,
-        encoding: "utf8",
-      });
+      const r = run(
+        process.execPath,
+        [path.join("scripts", "analyze-changes.mjs"), FILE, EN_FILE],
+        {
+          stdio: "pipe",
+          shell: false,
+          encoding: "utf8",
+        }
+      );
+
       const raw = (r.stdout ?? "").toString().trim();
       const ANALYZER_RESULT = stripStatusPrefixes(raw);
 
@@ -730,23 +859,21 @@ try {
           break;
 
         case "STRUCTURAL_ONLY":
-          console.log(`ℹ️  Analyzer result (SR-primary): STRUCTURAL_ONLY for ${FILE}. Syncing structure SR -> EN without AI.`);
+          console.log(`ℹ️  Analyzer result (SR-source): STRUCTURAL_ONLY for ${FILE}. Syncing structure SR -> EN without AI.`);
           STRUCTURAL_ONLY_COUNT++;
-
           nodeScript("sync-structure.mjs", [FILE, EN_FILE, TEMP_EN_FILE, "--direction=sr-en"]);
           stagePromotedFile(TEMP_EN_FILE, EN_FILE);
           break;
 
         case "CODE_ONLY":
-          console.log(`ℹ️  Analyzer result (SR-primary): CODE_ONLY for ${FILE}. Syncing code blocks SR -> EN without AI.`);
+          console.log(`ℹ️  Analyzer result (SR-source): CODE_ONLY for ${FILE}. Syncing code blocks SR -> EN without AI.`);
           CODE_ONLY_COUNT++;
-
           nodeScript("sync-code-blocks.mjs", [FILE, EN_FILE, TEMP_EN_FILE, "--direction=sr-en"]);
           stagePromotedFile(TEMP_EN_FILE, EN_FILE);
           break;
 
         case "TEXT_AND_STRUCTURE":
-          console.log(`ℹ️  Analyzer result (SR-primary): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation SR -> EN.`);
+          console.log(`ℹ️  Analyzer result (SR-source): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation SR -> EN.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
           if (!hasOpenAIKey()) {
@@ -767,17 +894,24 @@ try {
             console.log(`🌐 Translating (SR → EN, NORMAL MODE): ${FILE}`);
             nodeScript("translate-adoc.mjs", [FILE, TEMP_EN_FILE, "--direction=sr-en"]);
 
-            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], { allowFail: true });
+            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], {
+              allowFail: true,
+            });
+
             if (v1 !== 0) {
               console.log(`⚠️ Validation failed for ${FILE} in SR → EN NORMAL MODE. Retrying in SAFE MODE...`);
               nodeScript("translate-adoc.mjs", [FILE, TEMP_EN_FILE, "--direction=sr-en", "--safe"]);
 
-              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], { allowFail: true });
+              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], {
+                allowFail: true,
+              });
+
               if (v2 !== 0) {
                 console.log(`❌ SAFE MODE translation validation FAILED for ${FILE} (SR → EN).`);
                 console.log("    Please inspect the SR/EN files and fix manually.");
                 process.exit(1);
               }
+
               SAFE_FALLBACK_COUNT++;
             }
           }
@@ -787,16 +921,15 @@ try {
 
         default:
           if (ANALYZER_RESULT) {
-            console.log(`⚠️  Unknown analyzer result for SR-primary page ${FILE}: STATUS=${ANALYZER_RESULT}`);
+            console.log(`⚠️  Unknown analyzer result for SR-source page ${FILE}: STATUS=${ANALYZER_RESULT}`);
           } else {
-            console.log(`⚠️  Analyzer did not return a status for SR-primary page ${FILE}. Skipping.`);
+            console.log(`⚠️  Analyzer did not return a status for SR-source page ${FILE}. Skipping.`);
           }
           break;
       }
     }
   }
 
-  // ---------------- Formatting pass ----------------
   const stagedAdocAll = getStagedFiles(["**/*.adoc"]);
   if (stagedAdocAll.length && existsSync(path.join("scripts", "format-adoc.mjs"))) {
     console.log("🧹 Running AsciiDoc formatter on staged .adoc files...");
@@ -812,7 +945,6 @@ try {
     }
   }
 
-  // ---------------- Navigation POST validation ----------------
   console.log("🧭 Validating EN/SR navigation (nav.adoc) consistency...");
   if (existsSync(path.join("scripts", "validate-nav.mjs"))) {
     const navCode = nodeScript("validate-nav.mjs", [], { allowFail: true });
@@ -820,16 +952,19 @@ try {
       console.log("⛔ pre-commit: navigation POST validation failed. Aborting commit.");
       process.exit(navCode);
     }
-    if (existsSync("docs-en/modules/ROOT/nav.adoc")) git(["add", "docs-en/modules/ROOT/nav.adoc"], { stdio: "inherit" });
-    if (existsSync("docs-sr/modules/ROOT/nav.adoc")) git(["add", "docs-sr/modules/ROOT/nav.adoc"], { stdio: "inherit" });
+    if (existsSync("docs-en/modules/ROOT/nav.adoc")) {
+      git(["add", "docs-en/modules/ROOT/nav.adoc"], { stdio: "inherit" });
+    }
+    if (existsSync("docs-sr/modules/ROOT/nav.adoc")) {
+      git(["add", "docs-sr/modules/ROOT/nav.adoc"], { stdio: "inherit" });
+    }
   } else {
     console.log("ℹ️  validate-nav.mjs not found. Skipping navigation validation.");
   }
 
-  // ---------------- Summary ----------------
   console.log("📊 Translation summary for this commit:");
-  console.log(`   MODE:                ${TRANSLATION_MODE}       # normal | strict | off`);
-  console.log(`   LANGUAGE_CHECK_MODE: ${LANGUAGE_CHECK_MODE}    # strict | warn | off (updated=${LANGUAGE_CHECK_INCLUDE_UPDATED})`);
+  console.log(`   MODE:                ${TRANSLATION_MODE}`);
+  console.log(`   LANGUAGE_CHECK_MODE: ${LANGUAGE_CHECK_MODE} (updated=${LANGUAGE_CHECK_INCLUDE_UPDATED})`);
   console.log(`   NO_CHANGES:          ${NO_CHANGES_COUNT} file(s)`);
   console.log(`   STRUCTURAL_ONLY:     ${STRUCTURAL_ONLY_COUNT} file(s)`);
   console.log(`   CODE_ONLY:           ${CODE_ONLY_COUNT} file(s)`);
@@ -837,7 +972,6 @@ try {
   console.log(`   SAFE_FALLBACK_USED:  ${SAFE_FALLBACK_COUNT} time(s)`);
 
   const ledgerEnd = readLedgerTotalsSync(ledgerPath);
-
   const delta = {
     requests: ledgerEnd.requests - ledgerStart.requests,
     prompt: ledgerEnd.prompt - ledgerStart.prompt,
