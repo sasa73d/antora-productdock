@@ -1,5 +1,5 @@
 :translation-source: sr
 :page-lang: en
 = Introduction to MuleSoft and Mule 4
-
-image:docs-assets::shared/architecture/API-Led-1.png[API-led Connectivity]
+MuleSoft offers one of the most widespread integration platforms and more
+image:docs-assets::shared/architecture/API-Led-1.png[API-led connectivity]
