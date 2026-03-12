@@ -1,5 +1,0 @@
-:primary-lang: en
-
-= Uvod u MuleSoft i Mule 4
-
-image:docs-assets::shared/architecture/API-Led-1.png[Vođena povezanost]

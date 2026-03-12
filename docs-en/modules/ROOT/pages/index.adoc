@@ -1,5 +1,0 @@
-:primary-lang: en
-
-= Introduction to MuleSoft and Mule 4
-
-image:docs-assets::shared/architecture/API-Led-1.png[API-led connectivity]
