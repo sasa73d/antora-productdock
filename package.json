@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/sasa73d/antora-productdock#readme",
   "dependencies": {
+    "asciidoctor-kroki": "^0.18.1",
     "dotenv": "^17.2.3",
     "openai": "^6.9.1"
   },

@@ -1,72 +1,214 @@
 // sync-code-blocks.mjs
-// Synchronizes code and literal blocks from an English AsciiDoc file
-// to its Serbian counterpart, without calling AI.
+// Synchronizes code and literal blocks from a source AsciiDoc file
+// to its translated counterpart, without calling AI.
+//
+// Supported modes:
+//   Legacy mode:
+//     node sync-code-blocks.mjs <sourceFile.adoc> <targetFile.adoc>
+//
+//   Temp-output mode:
+//     node sync-code-blocks.mjs <sourceFile.adoc> <existingTargetFile.adoc> <outputTargetFile.adoc> --direction=en-sr|sr-en
+//
 // It copies block contents for:
 // - [source,...] + ---- ... ----
+// - bare ---- ... ---- blocks
 // - .... ... .... literal blocks
+// - ``` ... ``` fenced blocks
 
 import fs from 'fs/promises';
+import path from 'path';
 
-async function main() {
-  const [, , enPath, srPath] = process.argv;
+function parseArgs(argv) {
+  const args = argv.slice(2);
 
-  if (!enPath || !srPath) {
-    console.error('Usage: node sync-code-blocks.mjs <enFile.adoc> <srFile.adoc>');
+  if (args.length < 2) {
+    console.error(
+      'Usage:\n' +
+        '  node sync-code-blocks.mjs <sourceFile.adoc> <targetFile.adoc>\n' +
+        '  node sync-code-blocks.mjs <sourceFile.adoc> <existingTargetFile.adoc> <outputTargetFile.adoc> --direction=en-sr|sr-en'
+    );
     process.exit(1);
   }
 
-  console.log(`Syncing code blocks from EN to SR: ${enPath} -> ${srPath}`);
+  const sourcePath = args[0];
+  const existingTargetPath = args[1];
 
-  const [enContent, srContent] = await Promise.all([
-    fs.readFile(enPath, 'utf8'),
-    fs.readFile(srPath, 'utf8'),
-  ]);
+  let outputPath = existingTargetPath;
+  let direction = '';
 
-  const enLines = enContent.split('\n');
-  const srLines = srContent.split('\n');
-
-  const max = Math.min(enLines.length, srLines.length);
-
-  let inSourceBlockEn = false;
-  let inSourceBlockSr = false;
-  let inLiteralBlockEn = false;
-  let inLiteralBlockSr = false;
-
-  for (let i = 0; i < max; i++) {
-    const enLine = enLines[i];
-    const srLine = srLines[i];
-
-    const trimmedEn = enLine.trim();
-    const trimmedSr = srLine.trim();
-
-    // Track literal "...." blocks
-    if (trimmedEn === '....') {
-      inLiteralBlockEn = !inLiteralBlockEn;
-    }
-    if (trimmedSr === '....') {
-      inLiteralBlockSr = !inLiteralBlockSr;
-    }
-
-    // Track ---- blocks (source blocks)
-    if (trimmedEn === '----') {
-      inSourceBlockEn = !inSourceBlockEn;
-    }
-    if (trimmedSr === '----') {
-      inSourceBlockSr = !inSourceBlockSr;
-    }
-
-    const enInCode = inSourceBlockEn || inLiteralBlockEn;
-    const srInCode = inSourceBlockSr || inLiteralBlockSr;
-
-    // If both EN and SR are within a code/literal block at this line index,
-    // copy EN line over SR.
-    if (enInCode && srInCode) {
-      srLines[i] = enLine;
+  for (let i = 2; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--direction=')) {
+      direction = arg.split('=')[1] || '';
+    } else if (!arg.startsWith('--') && outputPath === existingTargetPath) {
+      outputPath = arg;
+    } else {
+      console.error(`Unexpected argument: ${arg}`);
+      process.exit(1);
     }
   }
 
-  const updatedSrContent = srLines.join('\n');
-  await fs.writeFile(srPath, updatedSrContent, 'utf8');
+  if (direction && direction !== 'en-sr' && direction !== 'sr-en') {
+    console.error(`Invalid --direction value: ${direction}. Expected en-sr or sr-en.`);
+    process.exit(1);
+  }
+
+  return {
+    sourcePath,
+    existingTargetPath,
+    outputPath,
+    direction,
+  };
+}
+
+function detectDirection(sourcePath, targetPath, explicitDirection) {
+  if (explicitDirection) return explicitDirection;
+
+  if (sourcePath.startsWith('docs-en/') && targetPath.startsWith('docs-sr/')) {
+    return 'en-sr';
+  }
+  if (sourcePath.startsWith('docs-sr/') && targetPath.startsWith('docs-en/')) {
+    return 'sr-en';
+  }
+
+  return 'unknown';
+}
+
+function isListingBlockAttributeLine(line) {
+  const trimmed = line.trim();
+  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/.test(trimmed);
+}
+
+function isBacktickFence(line) {
+  return /^```/.test(line.trim());
+}
+
+function isSupportedDelimiter(line) {
+  const trimmed = line.trim();
+  return trimmed === '----' || trimmed === '....' || isBacktickFence(trimmed);
+}
+
+function findClosingDelimiter(lines, startIndex, openerLine) {
+  const openerTrimmed = openerLine.trim();
+
+  if (isBacktickFence(openerTrimmed)) {
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      if (isBacktickFence(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (lines[i].trim() === openerTrimmed) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function collectProtectedBlockRanges(lines) {
+  const ranges = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const currentLine = lines[i];
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
+
+    if (
+      isListingBlockAttributeLine(currentLine) &&
+      nextLine !== null &&
+      isSupportedDelimiter(nextLine)
+    ) {
+      const closingIndex = findClosingDelimiter(lines, i + 1, nextLine);
+      if (closingIndex !== -1) {
+        ranges.push({ start: i, end: closingIndex });
+        i = closingIndex + 1;
+        continue;
+      }
+    }
+
+    if (isSupportedDelimiter(currentLine)) {
+      const closingIndex = findClosingDelimiter(lines, i, currentLine);
+      if (closingIndex !== -1) {
+        ranges.push({ start: i, end: closingIndex });
+        i = closingIndex + 1;
+        continue;
+      }
+    }
+
+    i += 1;
+  }
+
+  return ranges;
+}
+
+function syncCodeBlocks(sourceContent, targetContent) {
+  const sourceLines = sourceContent.split('\n');
+  const targetLines = targetContent.split('\n');
+
+  const sourceRanges = collectProtectedBlockRanges(sourceLines);
+  const targetRanges = collectProtectedBlockRanges(targetLines);
+
+  const rangeCount = Math.min(sourceRanges.length, targetRanges.length);
+
+  for (let r = 0; r < rangeCount; r++) {
+    const sourceRange = sourceRanges[r];
+    const targetRange = targetRanges[r];
+
+    const sourceBlockLines = sourceLines.slice(sourceRange.start, sourceRange.end + 1);
+    const targetBlockLength = targetRange.end - targetRange.start + 1;
+
+    if (sourceBlockLines.length !== targetBlockLength) {
+      console.warn(
+        `⚠️  Skipping block ${r + 1}: source block has ${sourceBlockLines.length} line(s), target block has ${targetBlockLength} line(s).`
+      );
+      continue;
+    }
+
+    for (let offset = 0; offset < sourceBlockLines.length; offset++) {
+      targetLines[targetRange.start + offset] = sourceBlockLines[offset];
+    }
+  }
+
+  if (sourceRanges.length !== targetRanges.length) {
+    console.warn(
+      `⚠️  Block count differs: source=${sourceRanges.length}, target=${targetRanges.length}. Synced first ${rangeCount} matching block(s) only.`
+    );
+  }
+
+  return targetLines.join('\n');
+}
+
+async function main() {
+  const {
+    sourcePath,
+    existingTargetPath,
+    outputPath,
+    direction,
+  } = parseArgs(process.argv);
+
+  const resolvedDirection = detectDirection(sourcePath, existingTargetPath, direction);
+
+  console.log(
+    `Syncing code blocks (${resolvedDirection}) from source to target: ${sourcePath} -> ${existingTargetPath}`
+  );
+
+  if (outputPath !== existingTargetPath) {
+    console.log(`Writing synced code blocks to temp output: ${outputPath}`);
+  }
+
+  const [sourceContent, targetContent] = await Promise.all([
+    fs.readFile(sourcePath, 'utf8'),
+    fs.readFile(existingTargetPath, 'utf8'),
+  ]);
+
+  const updatedTargetContent = syncCodeBlocks(sourceContent, targetContent);
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, updatedTargetContent, 'utf8');
 
   console.log('Code block sync completed.');
 }
@@ -75,4 +217,3 @@ main().catch((err) => {
   console.error('Error while syncing code blocks:', err);
   process.exit(1);
 });
-

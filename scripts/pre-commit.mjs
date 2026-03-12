@@ -15,6 +15,11 @@
  * - format all staged .adoc files
  * - nav POST validation (+ stage nav files)
  *
+ * Temp workflow:
+ * - generated files are first written into a temp folder
+ * - validation runs against temp output
+ * - only after success is temp output promoted to final destination
+ *
  * Env vars:
  *   TRANSLATION_MODE=normal|strict|off
  *   LANGUAGE_CHECK_MODE=strict|warn|off
@@ -22,7 +27,14 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  copyFileSync,
+} from "node:fs";
 import path from "node:path";
 
 function run(cmd, args, opts = {}) {
@@ -162,9 +174,8 @@ function filePrimaryLang(file) {
 }
 
 function ensurePrimaryLang(file) {
-  // ⛔ nav.adoc is structural — NEVER add :primary-lang: to it
+  // nav.adoc is structural — never add :primary-lang: to it
   if (file.endsWith("/nav.adoc")) return;
-
   if (!existsSync(file)) return;
 
   const txt = readFileSync(file, "utf8");
@@ -281,7 +292,7 @@ function hasOpenAIKey() {
   return Boolean((process.env.OPENAI_API_KEY || "").trim());
 }
 
-function abortMissingEnvOrKey({ repoRoot, reason }) {
+function abortMissingEnvOrKey({ reason }) {
   console.log("");
   console.log("❌ Missing .env / OpenAI configuration, but AI work is required for this commit.");
   if (reason) console.log(`   Reason: ${reason}`);
@@ -331,7 +342,7 @@ function formatInt(n) {
   return Number(n || 0).toLocaleString("en-US");
 }
 
-function runLanguageCheck(file, status, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED, repoRoot) {
+function runLanguageCheck(file, status, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED) {
   if (LANGUAGE_CHECK_MODE === "off") return;
 
   const shouldCheck =
@@ -339,10 +350,8 @@ function runLanguageCheck(file, status, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCL
 
   if (!shouldCheck) return;
 
-  // ✅ Abort only if AI work is required (language check) AND no key
   if (!hasOpenAIKey()) {
     abortMissingEnvOrKey({
-      repoRoot,
       reason: `Language detection is enabled and required for: ${file}`,
     });
   }
@@ -436,7 +445,62 @@ function detectManualSrEditsForEnPrimary() {
   }
 }
 
+// ---------------- temp helpers ----------------
+
+function createTempRoot(repoRoot) {
+  const tempRoot = path.join(
+    repoRoot,
+    ".tmp-precommit",
+    `${Date.now()}-${process.pid}`
+  );
+  mkdirSync(tempRoot, { recursive: true });
+  return tempRoot;
+}
+
+function toTempPath(tempRoot, finalPath) {
+  return path.join(tempRoot, finalPath);
+}
+
+function ensureParentDir(filePath) {
+  mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function promoteTempFile(tempPath, finalPath) {
+  if (!existsSync(tempPath)) {
+    throw new Error(`Temp file not found for promotion: ${tempPath}`);
+  }
+
+  ensureParentDir(finalPath);
+  copyFileSync(tempPath, finalPath);
+}
+
+function cleanupTempRoot(tempRoot) {
+  if (!tempRoot) return;
+  try {
+    rmSync(tempRoot, { recursive: true, force: true });
+  } catch {
+    // ignore cleanup failures
+  }
+}
+
+function stagePromotedFile(tempPath, finalPath) {
+  promoteTempFile(tempPath, finalPath);
+  git(["add", finalPath], { stdio: "inherit" });
+}
+
+function validateOrAbort(sourceFile, tempTargetFile, failMessageLines) {
+  const code = nodeScript("validate-translation.mjs", [sourceFile, tempTargetFile], { allowFail: true });
+  if (code === 0) return;
+
+  for (const line of failMessageLines) {
+    console.log(line);
+  }
+  process.exit(1);
+}
+
 // ---------------------------- MAIN ----------------------------
+let __TEMP_ROOT__ = "";
+
 try {
   loadDotEnvIfPresent();
 
@@ -457,16 +521,13 @@ try {
   }
 
   const repoRoot = getRepoRootSafe();
+  __TEMP_ROOT__ = createTempRoot(repoRoot);
 
-  // ✅ Fail-soft .env handling:
-  // - If .env missing: warn (always safe)
-  // - Abort only when an AI call is required (language check / translation) and OPENAI_API_KEY is missing
   const envMissing = !existsSync(envFilePath(repoRoot));
   if (envMissing) {
     console.log("ℹ️  .env not found. Create it via: cp .env.example .env (then set OPENAI_API_KEY)");
   }
 
-  // Token ledger snapshots
   const ledgerPath = getLedgerPath(repoRoot);
   const ledgerStart = readLedgerTotalsSync(ledgerPath);
 
@@ -474,17 +535,15 @@ try {
     return (v ?? "").toString().split("#")[0].trim();
   }
 
-  // Defaults (cleaned from inline .env comments)
   const TRANSLATION_MODE =
-    (cleanEnvValue(process.env.TRANSLATION_MODE) || "normal").toLowerCase(); // normal|strict|off
+    (cleanEnvValue(process.env.TRANSLATION_MODE) || "normal").toLowerCase();
 
   const LANGUAGE_CHECK_MODE =
-    (cleanEnvValue(process.env.LANGUAGE_CHECK_MODE) || "strict").toLowerCase(); // strict|warn|off
+    (cleanEnvValue(process.env.LANGUAGE_CHECK_MODE) || "strict").toLowerCase();
 
   const LANGUAGE_CHECK_INCLUDE_UPDATED =
     cleanEnvValue(process.env.LANGUAGE_CHECK_INCLUDE_UPDATED) || "0";
 
-  // Summary counters
   let NO_CHANGES_COUNT = 0;
   let STRUCTURAL_ONLY_COUNT = 0;
   let CODE_ONLY_COUNT = 0;
@@ -517,7 +576,6 @@ try {
   console.log("🔁 pre-commit: checking docs .adoc files for translation & sync...");
   console.log(`ℹ️  TRANSLATION_MODE=${TRANSLATION_MODE}`);
 
-  // Collect staged .adoc files and ensure :primary-lang:
   const stagedEnAll = getStagedFiles(["docs-en/**/*.adoc", "docs-en/**/**/*.adoc"]).filter((f) => f.endsWith(".adoc"));
   const stagedSrAll = getStagedFiles(["docs-sr/**/*.adoc", "docs-sr/**/**/*.adoc"]).filter((f) => f.endsWith(".adoc"));
 
@@ -553,9 +611,10 @@ try {
       const ns = getStagedNameStatus([FILE])[0];
       const STATUS = ns?.status ?? "";
 
-      runLanguageCheck(FILE, STATUS, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED, repoRoot);
+      runLanguageCheck(FILE, STATUS, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED);
 
       const SR_FILE = FILE.replace(/^docs-en\//, "docs-sr/");
+      const TEMP_SR_FILE = toTempPath(__TEMP_ROOT__, SR_FILE);
 
       const r = run(process.execPath, [path.join("scripts", "analyze-changes.mjs"), FILE, SR_FILE], {
         stdio: "pipe",
@@ -573,46 +632,51 @@ try {
         case "STRUCTURAL_ONLY":
           console.log(`ℹ️  Analyzer result (EN-primary): STRUCTURAL_ONLY for ${FILE}. Syncing structure EN -> SR without AI.`);
           STRUCTURAL_ONLY_COUNT++;
-          nodeScript("sync-structure.mjs", [FILE, SR_FILE, "--direction=en-sr"]);
-          git(["add", SR_FILE], { stdio: "inherit" });
+
+          // Requires sync-structure.mjs to support:
+          // node sync-structure.mjs <source> <existing-target> <output-target> --direction=en-sr
+          nodeScript("sync-structure.mjs", [FILE, SR_FILE, TEMP_SR_FILE, "--direction=en-sr"]);
+          stagePromotedFile(TEMP_SR_FILE, SR_FILE);
           break;
 
         case "CODE_ONLY":
           console.log(`ℹ️  Analyzer result (EN-primary): CODE_ONLY for ${FILE}. Syncing code blocks EN -> SR without AI.`);
           CODE_ONLY_COUNT++;
-          nodeScript("sync-code-blocks.mjs", [FILE, SR_FILE, "--direction=en-sr"]);
-          git(["add", SR_FILE], { stdio: "inherit" });
+
+          // Requires sync-code-blocks.mjs to support:
+          // node sync-code-blocks.mjs <source> <existing-target> <output-target> --direction=en-sr
+          nodeScript("sync-code-blocks.mjs", [FILE, SR_FILE, TEMP_SR_FILE, "--direction=en-sr"]);
+          stagePromotedFile(TEMP_SR_FILE, SR_FILE);
           break;
 
         case "TEXT_AND_STRUCTURE":
           console.log(`ℹ️  Analyzer result (EN-primary): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation EN -> SR.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
-          // ✅ Abort only when translation is required AND key is missing
           if (!hasOpenAIKey()) {
             abortMissingEnvOrKey({
-              repoRoot,
               reason: `Translation is required (EN → SR) for: ${FILE}`,
             });
           }
 
           if (TRANSLATION_MODE === "strict") {
             console.log(`🌐 Translating (EN → SR, SAFE MODE ONLY): ${FILE}`);
-            nodeScript("translate-adoc.mjs", [FILE, SR_FILE, "--direction=en-sr", "--safe"]);
-            const v = nodeScript("validate-translation.mjs", [FILE, SR_FILE], { allowFail: true });
-            if (v !== 0) {
-              console.log(`❌ Translation validation FAILED (EN → SR, STRICT/SAFE ONLY) for ${FILE}.`);
-              console.log("    Please fix the translation manually and retry the commit.");
-              process.exit(1);
-            }
+            nodeScript("translate-adoc.mjs", [FILE, TEMP_SR_FILE, "--direction=en-sr", "--safe"]);
+
+            validateOrAbort(FILE, TEMP_SR_FILE, [
+              `❌ Translation validation FAILED (EN → SR, STRICT/SAFE ONLY) for ${FILE}.`,
+              "    Please fix the translation manually and retry the commit.",
+            ]);
           } else {
             console.log(`🌐 Translating (EN → SR, NORMAL MODE): ${FILE}`);
-            nodeScript("translate-adoc.mjs", [FILE, SR_FILE, "--direction=en-sr"]);
-            const v1 = nodeScript("validate-translation.mjs", [FILE, SR_FILE], { allowFail: true });
+            nodeScript("translate-adoc.mjs", [FILE, TEMP_SR_FILE, "--direction=en-sr"]);
+
+            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], { allowFail: true });
             if (v1 !== 0) {
               console.log(`⚠️ Validation failed for ${FILE} in EN → SR NORMAL MODE. Retrying in SAFE MODE...`);
-              nodeScript("translate-adoc.mjs", [FILE, SR_FILE, "--direction=en-sr", "--safe"]);
-              const v2 = nodeScript("validate-translation.mjs", [FILE, SR_FILE], { allowFail: true });
+              nodeScript("translate-adoc.mjs", [FILE, TEMP_SR_FILE, "--direction=en-sr", "--safe"]);
+
+              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_SR_FILE], { allowFail: true });
               if (v2 !== 0) {
                 console.log(`❌ SAFE MODE translation validation FAILED for ${FILE} (EN → SR).`);
                 console.log("    Please inspect the EN/SR files and fix manually.");
@@ -622,7 +686,7 @@ try {
             }
           }
 
-          git(["add", SR_FILE], { stdio: "inherit" });
+          stagePromotedFile(TEMP_SR_FILE, SR_FILE);
           break;
 
         default:
@@ -647,9 +711,10 @@ try {
       const ns = getStagedNameStatus([FILE])[0];
       const STATUS = ns?.status ?? "";
 
-      runLanguageCheck(FILE, STATUS, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED, repoRoot);
+      runLanguageCheck(FILE, STATUS, LANGUAGE_CHECK_MODE, LANGUAGE_CHECK_INCLUDE_UPDATED);
 
       const EN_FILE = FILE.replace(/^docs-sr\//, "docs-en/");
+      const TEMP_EN_FILE = toTempPath(__TEMP_ROOT__, EN_FILE);
 
       const r = run(process.execPath, [path.join("scripts", "analyze-changes.mjs"), FILE, EN_FILE], {
         stdio: "pipe",
@@ -667,46 +732,47 @@ try {
         case "STRUCTURAL_ONLY":
           console.log(`ℹ️  Analyzer result (SR-primary): STRUCTURAL_ONLY for ${FILE}. Syncing structure SR -> EN without AI.`);
           STRUCTURAL_ONLY_COUNT++;
-          nodeScript("sync-structure.mjs", [FILE, EN_FILE, "--direction=sr-en"]);
-          git(["add", EN_FILE], { stdio: "inherit" });
+
+          nodeScript("sync-structure.mjs", [FILE, EN_FILE, TEMP_EN_FILE, "--direction=sr-en"]);
+          stagePromotedFile(TEMP_EN_FILE, EN_FILE);
           break;
 
         case "CODE_ONLY":
           console.log(`ℹ️  Analyzer result (SR-primary): CODE_ONLY for ${FILE}. Syncing code blocks SR -> EN without AI.`);
           CODE_ONLY_COUNT++;
-          nodeScript("sync-code-blocks.mjs", [FILE, EN_FILE, "--direction=sr-en"]);
-          git(["add", EN_FILE], { stdio: "inherit" });
+
+          nodeScript("sync-code-blocks.mjs", [FILE, EN_FILE, TEMP_EN_FILE, "--direction=sr-en"]);
+          stagePromotedFile(TEMP_EN_FILE, EN_FILE);
           break;
 
         case "TEXT_AND_STRUCTURE":
           console.log(`ℹ️  Analyzer result (SR-primary): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation SR -> EN.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
-          // ✅ Abort only when translation is required AND key is missing
           if (!hasOpenAIKey()) {
             abortMissingEnvOrKey({
-              repoRoot,
               reason: `Translation is required (SR → EN) for: ${FILE}`,
             });
           }
 
           if (TRANSLATION_MODE === "strict") {
             console.log(`🌐 Translating (SR → EN, SAFE MODE ONLY): ${FILE}`);
-            nodeScript("translate-adoc.mjs", [FILE, EN_FILE, "--direction=sr-en", "--safe"]);
-            const v = nodeScript("validate-translation.mjs", [FILE, EN_FILE], { allowFail: true });
-            if (v !== 0) {
-              console.log(`❌ Translation validation FAILED (SR → EN, STRICT/SAFE ONLY) for ${FILE}.`);
-              console.log("    Please fix the translation manually and retry the commit.");
-              process.exit(1);
-            }
+            nodeScript("translate-adoc.mjs", [FILE, TEMP_EN_FILE, "--direction=sr-en", "--safe"]);
+
+            validateOrAbort(FILE, TEMP_EN_FILE, [
+              `❌ Translation validation FAILED (SR → EN, STRICT/SAFE ONLY) for ${FILE}.`,
+              "    Please fix the translation manually and retry the commit.",
+            ]);
           } else {
             console.log(`🌐 Translating (SR → EN, NORMAL MODE): ${FILE}`);
-            nodeScript("translate-adoc.mjs", [FILE, EN_FILE, "--direction=sr-en"]);
-            const v1 = nodeScript("validate-translation.mjs", [FILE, EN_FILE], { allowFail: true });
+            nodeScript("translate-adoc.mjs", [FILE, TEMP_EN_FILE, "--direction=sr-en"]);
+
+            const v1 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], { allowFail: true });
             if (v1 !== 0) {
               console.log(`⚠️ Validation failed for ${FILE} in SR → EN NORMAL MODE. Retrying in SAFE MODE...`);
-              nodeScript("translate-adoc.mjs", [FILE, EN_FILE, "--direction=sr-en", "--safe"]);
-              const v2 = nodeScript("validate-translation.mjs", [FILE, EN_FILE], { allowFail: true });
+              nodeScript("translate-adoc.mjs", [FILE, TEMP_EN_FILE, "--direction=sr-en", "--safe"]);
+
+              const v2 = nodeScript("validate-translation.mjs", [FILE, TEMP_EN_FILE], { allowFail: true });
               if (v2 !== 0) {
                 console.log(`❌ SAFE MODE translation validation FAILED for ${FILE} (SR → EN).`);
                 console.log("    Please inspect the SR/EN files and fix manually.");
@@ -716,7 +782,7 @@ try {
             }
           }
 
-          git(["add", EN_FILE], { stdio: "inherit" });
+          stagePromotedFile(TEMP_EN_FILE, EN_FILE);
           break;
 
         default:
@@ -795,8 +861,10 @@ try {
   console.log(`   TOTAL_TOKENS:       ${formatInt(ledgerEnd.total)}`);
 
   console.log("✅ pre-commit: translation step completed.");
+  cleanupTempRoot(__TEMP_ROOT__);
   process.exit(0);
 } catch (e) {
+  cleanupTempRoot(__TEMP_ROOT__);
   console.error("⛔ pre-commit failed.");
   if (e?.message) console.error(e.message);
   process.exit(e?.status ?? 1);

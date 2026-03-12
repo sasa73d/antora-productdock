@@ -1,84 +1,102 @@
 :primary-lang: sr
 
-= 1. Opšti pregled Mule-a f
+= 1. Opšti pregled Mule-a
 
 == Šta je MuleSoft i koji problem rješava
 
-MuleSoft nudi jednu od najrasprostranjenijih integracionih platformi za povezivanje SaaS i enterprise aplikacija u cloud i on-premise okruženjima.
-Drugim riječima, MuleSoft je platforma koja IT odjelima daje alate za automatsku integraciju sistema i podataka, ubrzavanje tokova posla i kreiranje digitalnih iskustava – sve na jedinstvenoj, jednostavnoj platformi.
+MuleSoft nudi jednu od najrasprostranjenijih integracionih platformi za povezivanje SaaS i enterprise aplikacija u cloudu i on-premise okruženjima . Drugim riječima, MuleSoft je platforma koja IT odjelima daje alate za automatsku integraciju sistema i podataka, ubrzaju tokove posla i kreiraju digitalna iskustva – sve na jedinstvenoj, jednostavnoj platformi . U modernim preduzećima postoji mnoštvo različitih sistema (ERP, CRM, baze podataka, cloud servisi, interne i eksterne aplikacije) koji moraju razmjenjivati podatke. MuleSoft rješava problem povezivanja tih raznolikih sistema obezbjeđujući skalabilnu, sigurnu i održivu integracionu platformu.
 
-U modernim preduzećima postoji mnoštvo različitih sistema (ERP, CRM, baze podataka, cloud servisi, interne i eksterne aplikacije) koji moraju razmjenjivati podatke.
-MuleSoft rješava problem povezivanja tih raznolikih sistema obezbjeđujući skalabilnu, sigurnu i održivu integracionu platformu.
+[mermaid,mule-overview-systems,svg]
+....
+graph LR
+ERP[ERP Systems]
+CRM[CRM Systems]
+DB[Databases]
+Cloud[Cloud Services]
+Apps[Internal & External Apps]
+
+ERP --> MuleSoft
+CRM --> MuleSoft
+DB --> MuleSoft
+Cloud --> MuleSoft
+Apps --> MuleSoft
+
+MuleSoft --> Integration[Unified Integration Layer]
+....
 
 == Šta je Mule 4
 
-U središtu MuleSoft platforme nalazi se *Mule 4 runtime* – integracioni engine i razvojna platforma za izgradnju integracionih aplikacija i API-jeva.
-Mule 4 je napisan u Javi i zasniva se na *event-driven arhitekturi (EDA)*; to je lak i skalabilan engine koji automatski upravlja izvršavanjem niti i događaja.
+U središtu MuleSoft platforme nalazi se Mule 4 runtime – integracioni engine i razvojna platforma za izgradnju integracionih aplikacija i API-jeva. Mule 4 je napisan u Javi i zasniva se na event-driven arhitekturi (EDA); to je lak i skalabilan engine koji automatski upravlja izvršavanjem niti i događaja . Za developera to znači da se fokus može pomjeriti sa low-level detalja (kao što su thread-ovi, socketi, memorija) na dizajniranje tokova integracije (flow-ova) i poslovne logike. Tehnički gledano, Mule runtime koristi provjerene Java tehnologije u pozadini (npr. izgrađen je na Spring okviru), ali programer ne piše klasičnu Java aplikaciju – Mule pruža viši nivo apstrakcije kroz vizuelno komponovanje integracionih komponenti. Cilj je da se integracije grade deklarativno i brže, uz minimalno tzv. “glue” kôda. Mule 4 evoluira koncept Mule 3 runtime-a, zadržavajući iste ključne elemente (aplikacije, flow-ove, konektore, DataWeave, itd.), ali uvodi jednostavniji model poruka i bogatiji set mogućnosti tako da ima manje toga za naučiti i održavati .
 
-Za developera to znači da se fokus može pomjeriti sa low-level detalja (kao što su thread-ovi, socketi i memorija) na dizajniranje tokova integracije (*flow-ova*) i poslovne logike.
+=== API-led connectivity
 
-Tehnički gledano, Mule runtime koristi provjerene Java tehnologije u pozadini (npr. izgrađen je na Spring okviru), ali programer ne piše klasičnu Java aplikaciju.
-Mule pruža viši nivo apstrakcije kroz vizuelno komponovanje integracionih komponenti.
-Cilj je da se integracije grade deklarativno i brže, uz minimalno tzv. *„glue“ kôda*.
+[mermaid,mule-overview-systems,svg]
+....
+graph TD
 
-Mule 4 predstavlja evoluciju Mule 3 runtime-a.
-Zadržava iste ključne elemente (aplikacije, flow-ove, konektore, DataWeave, itd.), ali uvodi jednostavniji model poruka i bogatiji set mogućnosti, tako da postoji manje koncepata koje je potrebno naučiti i održavati.
+Client[Client Applications]
+
+subgraph Experience APIs
+E1[Mobile API]
+E2[Web API]
+end
+
+subgraph Process APIs
+P1[Process APIs]
+end
+
+subgraph System APIs
+S1[ERP]
+S2[CRM]
+S3[Database]
+end
+
+Client --> E1
+Client --> E2
+
+E1 --> P1
+E2 --> P1
+
+P1 --> S1
+P1 --> S2
+P1 --> S3
+....
 
 == Razvojni alati i platforma
 
-Zvanično razvojno okruženje za Mule je *Anypoint Studio* – IDE baziran na Eclipse-u, prilagođen za vizuelno dizajniranje Mule aplikacija.
+Zvanično razvojno okruženje za Mule je Anypoint Studio – to je IDE baziran na Eclipse-u prilagođen za vizuelno dizajniranje Mule aplikacija . U Studio okruženju kreiramo Mule projekte, dodajemo konektore iz bogate palete (preko 200 gotovih konektora za popularne sisteme poput Salesforce, SAP, Workday, baze podataka, itd. ), te razvijamo flow-ove drag-and-drop metodom i konfiguracijom komponenti. Studio dolazi sa svim potrebnim runtime elementima (ugrađeni Mule server, predinstaliran JDK i Maven) i omogućava lokalno testiranje i debagovanje aplikacija. MuleSoft je nedavno uveo i Anypoint Code Builder, novu generaciju IDE okruženja zasnovanog na Visual Studio Code platformi. Code Builder pruža iste mogućnosti kao Studio, ali radi i kao VS Code ekstenzija (desktop) i kao cloud IDE unutar Anypoint Platforme . To znači da se Mule aplikacije mogu razvijati i u pretraživaču uz povezivanje na Anypoint nalog, što donosi dodatnu fleksibilnost (posebno za timski rad ili rad na Mac/Linux okruženjima gdje Studio nije jedina opcija).
 
-U Anypoint Studio-u:
+Pored lokalnog razvoja, MuleSoft obezbjeđuje centralnu platformu za deploy i upravljanje aplikacijama – Anypoint Platform. Unutar Platforme, CloudHub je cloud okruženje (MuleSoft-ov iPaaS) gdje se Mule aplikacije mogu jednim klikom ili skriptovano deployovati.
 
-* kreiramo Mule projekte,
-* dodajemo konektore iz bogate palete (preko 200 gotovih konektora za sisteme kao što su Salesforce, SAP, Workday, baze podataka i drugi),
-* razvijamo flow-ove drag-and-drop metodom i konfiguracijom komponenti.
+Tokom razvoja, tipičan ciklus je:
 
-Studio dolazi sa svim potrebnim runtime elementima (ugrađeni Mule server, predinstaliran JDK i Maven) i omogućava lokalno testiranje i debagovanje aplikacija.
+. razvoj i test lokalno u Studio-u
+. deploy na CloudHub (sandbox ili production environment)
+. upravljanje aplikacijom kroz Anypoint Platform alate (npr. Runtime Manager za praćenje rada aplikacije u cloudu)
 
-MuleSoft je uveo i *Anypoint Code Builder* – novu generaciju IDE-a zasnovanu na Visual Studio Code platformi.
-Code Builder pruža iste funkcionalnosti kao Studio, ali je dostupan:
+Studio je integrisan sa Platformom – možemo se prijaviti svojim MuleSoft nalogom i direktno iz IDE-a izvršiti deploy aplikacije na cloud, što značajno ubrzava razvojni ciklus. Važno je naglasiti da lokalni rad i cloud izvršavanje nisu odvojeni silo-i, već dio jedinstvenog procesa razvoja: razvijamo lokalno, a zatim gotovo bez izmjena pokrećemo istu aplikaciju u cloud okruženju .
 
-* kao VS Code ekstenzija (desktop),
-* kao cloud IDE unutar Anypoint Platforme.
+[mermaid,mule-overview-systems,svg]
+....
+graph LR
+Developer --> Studio[Anypoint Studio]
 
-To omogućava razvoj Mule aplikacija direktno u pretraživaču uz povezivanje na Anypoint nalog, što donosi dodatnu fleksibilnost, posebno za timski rad i rad na različitim operativnim sistemima.
+Studio --> LocalTesting[Local Testing]
 
-Pored lokalnog razvoja, MuleSoft obezbjeđuje centralnu platformu za deploy i upravljanje aplikacijama – *Anypoint Platform*.
+LocalTesting --> Deploy[Deploy]
 
-Unutar platforme, *CloudHub* predstavlja cloud okruženje (MuleSoft-ov iPaaS) gdje se Mule aplikacije mogu deployovati jednim klikom ili skriptovano.
+Deploy --> CloudHub[CloudHub]
 
-Tipičan razvojni ciklus izgleda ovako:
-
-. razvoj i testiranje lokalno u Anypoint Studio-u,
-. deploy aplikacije na CloudHub (sandbox ili production),
-. upravljanje aplikacijom kroz Anypoint Platform alate (npr. Runtime Manager).
-
-Studio je direktno integrisan sa Anypoint Platformom, što omogućava deploy aplikacija u cloud direktno iz IDE-a.
-Lokalni razvoj i cloud izvršavanje nisu odvojeni procesi, već dio jedinstvenog razvojnog ciklusa.
+CloudHub --> RuntimeManager[Runtime Manager]
+....
 
 == MuleSoft zajednica i certifikacija
 
-Za početak rada sa MuleSoft-om formalna certifikacija nije obavezna.
-Ipak, *MuleSoft Certified Developer (MCD) Level 1* predstavlja dobar pokazatelj osnovnog znanja koje se očekuje od Mule developera.
-
-Preporučuje se korišćenje domena obuhvaćenih ovim certifikatom kao vodiča kroz gradivo, uključujući:
-
-* rad u Anypoint Studio-u,
-* razvoj flow-ova,
-* korišćenje konektora,
-* osnovne transformacije podataka,
-* error handling.
-
-Certifikat služi kao provjera znanja, ali učenje tehnologije se može započeti i bez njega.
-
-Zvanična MuleSoft dokumentacija nudi veliki broj besplatnih resursa:
+Za početak rada sa MuleSoft-om, formalna certifikacija nije obavezna, ali MuleSoft Certified Developer (MCD) Level 1 predstavlja dobar pokazatelj koje znanje se smatra osnovnim za Mule developera. Preporučuje se pregled domena obuhvaćenih ovim certifikatom kao vodič kroz gradivo (npr. poznavanje Anypoint Studio alata, razvoj flow-ova, korišćenje konektora, osnovna transformacija podataka, error handling, itd.). Certifikat služi kao provjera znanja na kraju učenja, ali učenje same tehnologije se može započeti i bez njega. 📎 Dokumentacija: MuleSoft zvanična stranica sadrži detalje o dostupnim certifikatima i ispitima , a tu su i brojni besplatni resursi: Trailhead moduli, zvanični tutorijali, forum zajednice, i dr. koji pomažu početnicima.
 
 * link:https://trailhead.salesforce.com/today[Trailhead moduli, window="_blank"]
 * link:https://docs.mulesoft.com/general/[Zvanični tutorijali, window="_blank"]
 * link:https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft[MuleSoft Community forumi, window="_blank"]
-
-koji značajno pomažu početnicima u savladavanju Mule 4 platforme.
 
 
 * link:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

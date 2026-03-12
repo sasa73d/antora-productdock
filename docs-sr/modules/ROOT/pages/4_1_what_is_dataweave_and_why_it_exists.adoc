@@ -1,0 +1,67 @@
+:primary-lang: sr
+
+== 4.1 Šta je DataWeave i zašto postoji
+
+DataWeave (DW) je deklarativni jezik za transformaciju i obradu podataka unutar Mule aplikacija. Osmislio ga je MuleSoft kao odgovor na ograničenja tradicionalnih integracionih pristupa, gdje su transformacije često bile vezane uz grafičke mape, a složenija logika postajala nečitljiva ili teško održiva. Za razliku od takvih pristupa, DataWeave je prvoklasni dio Mule runtime-a – nije dodatak sa strane već esencijalni mehanizam Mule 4 platforme. To znači da Mule aplikacija podrazumijevano koristi DataWeave gdje god je potrebna manipulacija podacima. DataWeave nije “još jedan mapper”, već punokrvni programski jezik sa svojom sintaksom, tipovima i funkcijama. Dizajniran je specifično za rad sa JSON, XML, CSV i drugim uobičajenim formatima podataka u integracijama.
+
+[mermaid,dataweave-position-in-mule,svg]
+....
+graph LR
+External_Data --> Mule_Flow
+Mule_Flow --> DataWeave
+DataWeave --> Data_Transformation
+Data_Transformation --> Target_System
+....
+
+Ključne karakteristike DataWeave-a su:
+
+* *Deklarativnost:* Umjesto da pišemo proceduralni kod kako transformisati podatke, u DW skripti opisujemo šta želimo da dobijemo od izvora – runtime se brine o tome kako to postići. Ovakav pristup fokusira nas na ciljanu strukturu, a ne na niskonivo korake.
+
+* *Fokus na podatke:* Sintaksa i funkcije DataWeave-a su optimizovane za manipulaciju strukturama podataka (nizovima, objektima, mapama). Mnoge operacije koje bi u opštem jeziku zahtijevale dosta koda, u DW su ugrađene (filtriranje, grupisanje, spajanje, agregacija i sl.).
+
+* *Integracija sa Mule runtime-om:* DataWeave je svuda prisutan u Mule-u – koristi se unutar Transform Message komponente za kompleksne transformacije, ali i u izrazima (tzv. DataWeave expressions označenim sa #[ ]) koje možemo staviti bilo gdje u konfiguraciji. Na primjer, postavljanje vrijednosti nekog polja, izrazi za rute (Choice router uslovi), log poruke, sve to koristi DataWeave izraze. Sve se izvršava u kontekstu Mule Event-a, što znači da DW ima pristup payload-u i atributima poruke direktno.
+
+[mermaid,dataweave-usage-in-flow,svg]
+....
+graph LR
+Mule_Event --> Payload
+Mule_Event --> Attributes
+Payload --> DataWeave
+Attributes --> DataWeave
+DataWeave --> Transformed_Data
+....
+
+* *Uloga u Mule aplikacijama:* DataWeave se koristi svuda gdje treba transformisati ili obraditi podatke tokom integracije. Najčešće, to je unutar transformacionih komponenti (npr. konverzija XML u JSON, mapiranje polja iz jedne strukture u drugu prije slanja u ciljnu aplikaciju). Međutim, DataWeave izrazi se koriste i za:
+
+* filtriranje podataka (npr. u Choice routeru: #[payload.quantity > 0]),
+
+* pristupanje dijelovima poruke (npr. #[attributes.headers.'Content-Type']),
+
+* formiranje novih struktura (npr. kreiranje objekta koji kombinuje podatke iz više izvora),
+
+* bilo koju logiku vezanu za podatke koja je potrebna u toku flow-a.
+
+Suština je da DataWeave “prožima” čitav Mule flow – nije ograničen na jedan element kao što je to bio slučaj sa starim “mapper” alatima. Svaki Mule Event koji prolazi kroz flow potencijalno može biti obrađen DataWeave izrazima na više mjesta. Drugim riječima, DataWeave uvijek radi u kontekstu Mule Event-a (nema posebnog zasebnog izvršavanja van toga). To olakšava rad jer ne moramo prelaziti u neki potpuno drugi alat za transformacije – sve se dešava unutar Mule aplikacije i koristi iste podatke koji putuju kroz nju.
+
+[mermaid,dataweave-integration-model,svg]
+....
+graph TD
+Input_Data --> Mule_Event
+Mule_Event --> DataWeave
+DataWeave --> Transformed_Event
+Transformed_Event --> Next_Component
+....
+
+Zašto baš DataWeave? Osim historijskih razloga (ujednačavanje različitih mehanizama transformacije iz Mule 3), DataWeave donosi brojne prednosti za integracije:
+
+* *Konsistentnost:* Jedinstven jezik za sve transformacije smanjuje potrebu za kombinovanjem raznih skripting jezika (XPath za XML, MEL za jednostavne izraze, Java za napredne slučajeve itd. u Mule 3). Sve se sada radi putem DW, što olakšava učenje i čitanje koda.
+
+* *Čitljivost i održivost:* DW je dizajniran da bude čitljiv i sličan JSON formatu za izlazne podatke. Kôd je deklarativan i često kraći od ekvivalenta u opštem jeziku. Takođe, pošto je fokusiran na strukturu, lakše je vizuelno uočiti oblik izlaznih podataka.
+
+* *Bogata standardna biblioteka:* Ugrađene funkcije (za rad sa nizovima, datumima, stringovima, itd.) štede vrijeme i smanjuju količinu vlastitog koda.
+
+* *Performanse:* DataWeave runtime je optimizovan da obrađuje velike količine podataka efikasno (npr. streamovanje – može obraditi podatke u struji, bez učitavanja svega u memoriju, gdje je to primjenjivo).
+
+* *Jednostavno testiranje:* Pošto se transformacije mogu izolovano pisati kao funkcije, moguće ih je testirati nezavisno. Postoji i DataWeave Playground (vidi dole) kao alat za eksperimentisanje sa skriptama.
+
+Zbog ovih osobina, DataWeave je postao centralni alat za rad sa podacima u Mule aplikacijama – ne samo neka pomoćna skripta, već srž integracione logike.
