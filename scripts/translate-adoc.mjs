@@ -216,7 +216,8 @@ function isMacroOnlyLine(line) {
 }
 
 function isAnchorLine(line) {
-  return /^$begin:math:display$\\\[\.\*$end:math:display$\]$/.test(line.trim());
+  const trimmed = line.trim();
+  return /^\[\[[^\]]+\]\]$/.test(trimmed);
 }
 
 function isProtectedSingleLine(line) {
