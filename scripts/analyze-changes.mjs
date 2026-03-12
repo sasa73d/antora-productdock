@@ -135,7 +135,7 @@ function extractRemovedAdded(diffOutput) {
 
 function isListingBlockAttributeLine(line) {
   const trimmed = line.trim();
-  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
+  return /^\[(source|listing|literal)(%[^\]]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
 }
 
 function isMetadataLine(line) {
@@ -152,27 +152,22 @@ function normalizeLines(lines) {
   const normalized = [];
 
   for (let line of lines) {
-    // strip leading diff marker and leading whitespace
     line = line.replace(/^[-+]/, '').trimStart();
 
     if (!line.trim()) continue;
 
-    // Ignore metadata, comments, and block attribute lines
     if (isMetadataLine(line)) {
       continue;
     }
 
-    // Headings: =, ==, === etc. -> strip marker only
     if (/^=+\s+/.test(line)) {
       line = line.replace(/^=+\s+/, '').trimEnd();
     } else {
-      // Lists: *, **, ., .., 1., 2., #, - -> strip marker only
       line = line.replace(/^([*.+0-9#-]+\s*)/, '').trimEnd();
     }
 
     if (!line.trim()) continue;
 
-    // keep only lines that contain any Unicode letter
     if (!/\p{L}/u.test(line)) {
       continue;
     }
@@ -277,7 +272,6 @@ async function main() {
     process.exit(0);
   }
 
-  // 1) CODE-ONLY DETECTION
   const skipCodeOnly =
     config.features && config.features.skipCodeOnlyChanges === true;
 
@@ -312,14 +306,10 @@ async function main() {
     process.exit(0);
   }
 
-  // 2) TEXT VS STRUCTURAL
   const { removed, added } = extractRemovedAdded(diffOutput);
   const normRemoved = normalizeLines(removed);
   const normAdded = normalizeLines(added);
 
-  // Fail-safe:
-  // If there is a diff, but normalization stripped everything,
-  // do not risk classifying it as NO_CHANGES.
   if (
     (removed.length > 0 || added.length > 0) &&
     normRemoved.length === 0 &&
