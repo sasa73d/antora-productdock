@@ -1,0 +1,103 @@
+:translation-source: sr
+:page-lang: en
+= 1. General Overview of Mule
+
+== What is MuleSoft and What Problem Does It Solve
+
+MuleSoft offers one of the most widespread integration platforms for connecting SaaS and enterprise applications in cloud and on-premise environments. In other words, MuleSoft is a platform that provides IT departments with tools for automatic integration of systems and data, accelerates workflows, and creates digital experiences – all on a unified, simple platform. In modern enterprises, there are numerous different systems (ERP, CRM, databases, cloud services, internal and external applications) that need to exchange data. MuleSoft solves the problem of connecting these diverse systems by providing a scalable, secure, and sustainable integration platform.
+
+[mermaid,mule-overview-systems,svg]
+....
+graph LR
+ERP[ERP Systems]
+CRM[CRM Systems]
+DB[Databases]
+Cloud[Cloud Services]
+Apps[Internal & External Apps]
+
+ERP --> MuleSoft
+CRM --> MuleSoft
+DB --> MuleSoft
+Cloud --> MuleSoft
+Apps --> MuleSoft
+
+MuleSoft --> Integration[Unified Integration Layer]
+....
+
+== What is Mule 4
+
+At the core of the MuleSoft platform is Mule 4 runtime – an integration engine and development platform for building integration applications and APIs. Mule 4 is written in Java and is based on an event-driven architecture (EDA); it is a lightweight and scalable engine that automatically manages thread and event execution. For the developer, this means that the focus can shift from low-level details (such as threads, sockets, memory) to designing integration flows and business logic. Technically speaking, the Mule runtime uses proven Java technologies in the background (e.g. it is built on the Spring framework), but the developer does not write a classic Java application – Mule provides a higher level of abstraction through visual composition of integration components. The goal is to build integrations declaratively and faster, with minimal so-called “glue” code. Mule 4 evolves the concept of Mule 3 runtime, retaining the same key elements (applications, flows, connectors, DataWeave, etc.), but introduces a simpler message model and a richer set of capabilities so there is less to learn and maintain.
+
+=== API-led connectivity
+
+[mermaid,mule-overview-systems,svg]
+....
+graph TD
+
+Client[Client Applications]
+
+subgraph Experience APIs
+E1[Mobile API]
+E2[Web API]
+end
+
+subgraph Process APIs
+P1[Process APIs]
+end
+
+subgraph System APIs
+S1[ERP]
+S2[CRM]
+S3[Database]
+end
+
+Client --> E1
+Client --> E2
+
+E1 --> P1
+E2 --> P1
+
+P1 --> S1
+P1 --> S2
+P1 --> S3
+....
+
+== Development Tools and Platform
+
+The official development environment for Mule is Anypoint Studio – an Eclipse-based IDE tailored for visual design of Mule applications. In the Studio environment, we create Mule projects, add connectors from a rich palette (over 200 ready connectors for popular systems like Salesforce, SAP, Workday, databases, etc.), and develop flows using drag-and-drop method and component configuration. Studio comes with all necessary runtime elements (embedded Mule server, pre-installed JDK and Maven) and allows local testing and debugging of applications. Recently, MuleSoft introduced Anypoint Code Builder, a new generation IDE environment based on the Visual Studio Code platform. Code Builder offers the same functionalities as Studio, but works both as a VS Code extension (desktop) and as a cloud IDE inside the Anypoint Platform. This means that Mule applications can be developed in a browser connected to the Anypoint account, providing additional flexibility (especially for team collaboration or working on Mac/Linux environments where Studio is not the only option).
+
+Besides local development, MuleSoft provides a central platform for deployment and management of applications – Anypoint Platform. Within the Platform, CloudHub is a cloud environment (MuleSoft’s iPaaS) where Mule applications can be deployed with a single click or scripted deployment.
+
+During development, the typical cycle is:
+
+. develop and test locally in Studio
+. deploy to CloudHub (sandbox or production environment)
+. manage the application through Anypoint Platform tools (e.g. Runtime Manager for monitoring application performance in the cloud)
+
+Studio is integrated with the Platform – we can log in with our MuleSoft account and deploy applications to the cloud directly from the IDE, which significantly speeds up the development cycle. It is important to emphasize that local work and cloud execution are not separate silos, but part of a unified development process: we develop locally, and then run the same application in the cloud environment with almost no changes.
+
+[mermaid,mule-overview-systems,svg]
+....
+graph LR
+Developer --> Studio[Anypoint Studio]
+
+Studio --> LocalTesting[Local Testing]
+
+LocalTesting --> Deploy[Deploy]
+
+Deploy --> CloudHub[CloudHub]
+
+CloudHub --> RuntimeManager[Runtime Manager]
+....
+
+== MuleSoft Community and Certification
+
+To start working with MuleSoft, formal certification is not mandatory, but MuleSoft Certified Developer (MCD) Level 1 represents a good indicator of the knowledge considered basic for a Mule developer. It is recommended to review the domains covered by this certification as a guide through the material (e.g. knowledge of Anypoint Studio tools, flow development, using connectors, basic data transformation, error handling, etc.). The certificate serves as a knowledge check at the end of learning, but learning the technology itself can start without it. 📎 Documentation: The MuleSoft official site contains details about available certificates and exams, and there are many free resources: Trailhead modules, official tutorials, community forum, etc., that help beginners.
+
+* link:https://trailhead.salesforce.com/today[Trailhead modules, window="_blank"]
+* link:https://docs.mulesoft.com/general/[Official tutorials, window="_blank"]
+* link:https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft[MuleSoft Community forums, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLScowDMm7DBSE8RpjAAvMwSOci9IoaQ4cJ2XMHwxVC_gDZ3Cgg/viewform?usp=publish-editor[Short knowledge check quiz, window="_blank"]
+
