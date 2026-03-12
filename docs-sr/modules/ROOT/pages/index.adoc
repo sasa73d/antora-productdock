@@ -1,5 +1,5 @@
 :translation-source: sr
 :page-lang: sr
 = Uvod u MuleSoft i Mule 4
-
+MuleSoft nudi jednu od najrasprostranjenijih integracionih platformi
 image:docs-assets::shared/architecture/API-Led-1.png[Vođena povezanost]
