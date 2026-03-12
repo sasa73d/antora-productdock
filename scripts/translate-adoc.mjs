@@ -48,16 +48,20 @@ You are given an AsciiDoc (.adoc) document used in Antora documentation.
 
 IMPORTANT RULES (MUST FOLLOW):
 - Do NOT change any AsciiDoc syntax or structure.
+- Preserve line order EXACTLY.
+- Do NOT add, remove or reorder lines.
+- Do NOT move headings to another line.
+- Do NOT insert blank lines at the top of the document.
 - Do NOT change heading markup (=, ==, ===, etc.), only translate the text after them.
 - Do NOT change roles, attributes, IDs, anchors, xrefs, include directives or macros.
 - Do NOT change URLs, xrefs, file paths or attribute names.
-- Do NOT add or remove lines.
 - Keep all inline formatting markers (*bold*, _italic_, \`monospace\`) as they are, only translate the human-readable text.
 - Keep lists (-, *, .) and their structure unchanged, only translate the text.
 - Keep table structure unchanged, only translate the cell text.
 - Do NOT add explanations or comments.
 - Placeholder lines that look like @@PROTECTED_LINE_...@@ must remain EXACTLY unchanged.
 - Keep metadata lines in place if present, but do not invent extra attributes.
+- If you are unsure how to translate a line without changing structure, leave that line unchanged.
 
 Return ONLY the translated AsciiDoc document, same structure, just with Serbian text where appropriate.
 `.trim();
@@ -99,16 +103,20 @@ You are given an AsciiDoc (.adoc) document used in Antora documentation.
 
 IMPORTANT RULES (MUST FOLLOW):
 - Do NOT change any AsciiDoc syntax or structure.
+- Preserve line order EXACTLY.
+- Do NOT add, remove or reorder lines.
+- Do NOT move headings to another line.
+- Do NOT insert blank lines at the top of the document.
 - Do NOT change heading markup (=, ==, ===, etc.), only translate the text after them.
 - Do NOT change roles, attributes, IDs, anchors, xrefs, include directives or macros.
 - Do NOT change URLs, xrefs, file paths or attribute names.
-- Do NOT add or remove lines.
 - Keep all inline formatting markers (*bold*, _italic_, \`monospace\`) as they are, only translate the human-readable text.
 - Keep lists (-, *, .) and their structure unchanged, only translate the text.
 - Keep table structure unchanged, only translate the cell text.
 - Do NOT add explanations or comments.
 - Placeholder lines that look like @@PROTECTED_LINE_...@@ must remain EXACTLY unchanged.
 - Keep metadata lines in place if present, but do not invent extra attributes.
+- If you are unsure how to translate a line without changing structure, leave that line unchanged.
 
 Return ONLY the translated AsciiDoc document, same structure, just with English text where appropriate.
 `.trim();
@@ -182,7 +190,7 @@ function getTargetPageLang(direction) {
 
 function isListingBlockAttributeLine(line) {
   const trimmed = line.trim();
-  return /^\[(source|listing|literal)(%[^\]]+)?(?:,[^\]]*)?\]$/.test(trimmed);
+  return /^\[(source|listing|literal)(%[^\]]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
 }
 
 function isBacktickFence(line) {
@@ -192,6 +200,31 @@ function isBacktickFence(line) {
 function isProtectedDelimiter(line) {
   const trimmed = line.trim();
   return trimmed === '----' || trimmed === '....' || isBacktickFence(trimmed);
+}
+
+function isAttributeLine(line) {
+  return /^:[^:]+:\s*.*$/i.test(line.trim());
+}
+
+function isMacroOnlyLine(line) {
+  const trimmed = line.trim();
+  return (
+    trimmed.startsWith('include::') ||
+    trimmed.startsWith('xref:') ||
+    trimmed.startsWith('image::')
+  );
+}
+
+function isAnchorLine(line) {
+  return /^$begin:math:display$\\\[\.\*$end:math:display$\]$/.test(line.trim());
+}
+
+function isProtectedSingleLine(line) {
+  return (
+    isAttributeLine(line) ||
+    isMacroOnlyLine(line) ||
+    isAnchorLine(line)
+  );
 }
 
 function findClosingDelimiter(lines, startIndex, openerLine) {
@@ -218,6 +251,11 @@ function findClosingDelimiter(lines, startIndex, openerLine) {
 /**
  * Protect code/literal/listing blocks before sending the document to the model.
  * Each protected line is replaced by a unique placeholder line to preserve line count.
+ *
+ * Extended with protection for single-line non-translatable regions:
+ * - attribute lines
+ * - macro-only lines
+ * - anchor lines
  */
 function protectCodeAndLiteralBlocks(adocText) {
   const lines = adocText.split('\n');
@@ -266,6 +304,14 @@ function protectCodeAndLiteralBlocks(adocText) {
         i = closingIndex + 1;
         continue;
       }
+    }
+
+    if (isProtectedSingleLine(currentLine)) {
+      const token = nextToken();
+      protectedLines.set(token, currentLine);
+      outputLines.push(token);
+      i += 1;
+      continue;
     }
 
     outputLines.push(currentLine);
@@ -404,6 +450,130 @@ function normalizeMetadata(adocText, direction, translationSource) {
   return lines.join('\n');
 }
 
+function collapseLeadingBlankLines(text) {
+  return text.replace(/^\s*\n+/, '');
+}
+
+function findFirstHeadingIndex(lines) {
+  return lines.findIndex((line) => /^\s*=+\s+.+$/.test(line));
+}
+
+function findTopAttrBlock(lines) {
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === '') i += 1;
+
+  const start = i;
+  while (i < lines.length && isAttributeLine(lines[i])) i += 1;
+
+  if (i > start) {
+    return {
+      hasTopAttrBlock: true,
+      start,
+      end: i - 1,
+    };
+  }
+
+  return {
+    hasTopAttrBlock: false,
+    start: -1,
+    end: -1,
+  };
+}
+
+/**
+ * Stabilizes only the top-of-file structure. Keeps current file semantics,
+ * but tries to align the top pattern with the source:
+ * - remove legacy :primary-lang:
+ * - ensure :page-lang:
+ * - ensure :translation-source:
+ * - collapse leading blank lines
+ * - if source starts with top attributes, prefer target top attributes before heading
+ * - if source starts with heading, prefer target heading before attributes
+ */
+function normalizeTopOfFileStructure(sourceText, adocText, direction, translationSource) {
+  let text = collapseLeadingBlankLines(adocText);
+  text = normalizeMetadata(text, direction, translationSource);
+
+  const sourceLines = collapseLeadingBlankLines(sourceText).split('\n');
+  let targetLines = text.split('\n');
+
+  const sourceTopAttrs = findTopAttrBlock(sourceLines);
+  const targetTopAttrs = findTopAttrBlock(targetLines);
+
+  const sourceHeadingIdx = findFirstHeadingIndex(sourceLines);
+  const targetHeadingIdx = findFirstHeadingIndex(targetLines);
+
+  const sourceStartsWithAttrs =
+    sourceTopAttrs.hasTopAttrBlock &&
+    (sourceHeadingIdx === -1 || sourceTopAttrs.start <= sourceHeadingIdx);
+
+  const sourceStartsWithHeading =
+    sourceHeadingIdx !== -1 &&
+    (!sourceTopAttrs.hasTopAttrBlock || sourceHeadingIdx < sourceTopAttrs.start);
+
+  // Case 1:
+  // Source begins with attributes, but target begins with heading and has attrs after it.
+  // Move contiguous top attrs above the first heading.
+  if (
+    sourceStartsWithAttrs &&
+    targetHeadingIdx === 0
+  ) {
+    let i = 1;
+    const movedAttrs = [];
+
+    while (i < targetLines.length && isAttributeLine(targetLines[i])) {
+      movedAttrs.push(targetLines[i]);
+      i += 1;
+    }
+
+    if (movedAttrs.length > 0) {
+      const headingLine = targetLines[0];
+      const rest = targetLines.slice(i);
+      targetLines = [...movedAttrs, headingLine, ...rest];
+    }
+  }
+
+  // Case 2:
+  // Source begins with heading, but target begins with top attrs and heading follows.
+  // Move heading above top attrs.
+  if (
+    sourceStartsWithHeading &&
+    targetTopAttrs.hasTopAttrBlock &&
+    targetHeadingIdx > targetTopAttrs.end
+  ) {
+    const headingLine = targetLines[targetHeadingIdx];
+    const topAttrs = targetLines.slice(targetTopAttrs.start, targetTopAttrs.end + 1);
+    const beforeAttrs = targetLines.slice(0, targetTopAttrs.start);
+    const between = targetLines.slice(targetTopAttrs.end + 1, targetHeadingIdx);
+    const afterHeading = targetLines.slice(targetHeadingIdx + 1);
+
+    targetLines = [
+      ...beforeAttrs.filter((l) => l.trim() !== ''),
+      headingLine,
+      ...topAttrs,
+      ...between,
+      ...afterHeading,
+    ];
+  }
+
+  // Final cleanup
+  return collapseLeadingBlankLines(targetLines.join('\n'));
+}
+
+/**
+ * Cheap local structural repair before SAFE retry:
+ * - collapse exact duplication
+ * - collapse leading blank lines
+ * - normalize top block against source
+ */
+function attemptCheapStructuralRepair(sourceText, translatedText, direction, translationSource) {
+  let result = translatedText;
+  result = collapseExactDuplicatedDocument(result);
+  result = collapseLeadingBlankLines(result);
+  result = normalizeTopOfFileStructure(sourceText, result, direction, translationSource);
+  return result;
+}
+
 /**
  * Translate full AsciiDoc content.
  * @param {string} adocText - Original AsciiDoc content
@@ -466,7 +636,8 @@ async function translateAdocContent(adocText, isSafeMode, direction, translation
     if (maybeTranslated) {
       let restored = restoreProtectedBlocks(maybeTranslated, protectedLines);
       restored = collapseExactDuplicatedDocument(restored);
-      restored = normalizeMetadata(restored, direction, translationSource);
+      restored = normalizeTopOfFileStructure(adocText, restored, direction, translationSource);
+      restored = attemptCheapStructuralRepair(adocText, restored, direction, translationSource);
       return restored;
     }
 
@@ -494,7 +665,8 @@ async function translateAdocContent(adocText, isSafeMode, direction, translation
 
   let restored = restoreProtectedBlocks(translated, protectedLines);
   restored = collapseExactDuplicatedDocument(restored);
-  restored = normalizeMetadata(restored, direction, translationSource);
+  restored = normalizeTopOfFileStructure(adocText, restored, direction, translationSource);
+  restored = attemptCheapStructuralRepair(adocText, restored, direction, translationSource);
 
   return restored;
 }
