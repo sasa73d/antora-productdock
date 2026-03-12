@@ -523,7 +523,7 @@ function detectManualEditsOnSecondaryPages() {
     const isSecondary = meta.translationSource !== pair.selfLang;
     if (!isSecondary) continue;
 
-    const sourceFile = meta.translationSource === "en" ? pair.other : pair.other;
+    const sourceFile = pair.other;
 
     const sourceStaged = getStagedFiles([sourceFile]).length > 0;
     if (sourceStaged) continue;
@@ -607,6 +607,26 @@ function validateOrAbort(sourceFile, tempTargetFile, failMessageLines) {
 function getTranslationSource(file) {
   const meta = fileMeta(file);
   return meta.translationSource || defaultLangFromFolder(file);
+}
+
+function determineAnalyzerResult(file, targetFile, status) {
+  if (status === "A") {
+    console.log(`ℹ️  New source page detected. Forcing TEXT_AND_STRUCTURE for ${file}.`);
+    return "TEXT_AND_STRUCTURE";
+  }
+
+  const r = run(
+    process.execPath,
+    [path.join("scripts", "analyze-changes.mjs"), file, targetFile],
+    {
+      stdio: "pipe",
+      shell: false,
+      encoding: "utf8",
+    }
+  );
+
+  const raw = (r.stdout ?? "").toString().trim();
+  return stripStatusPrefixes(raw);
 }
 
 // ---------------------------- MAIN ----------------------------
@@ -735,18 +755,7 @@ try {
       const SR_FILE = FILE.replace(/^docs-en\//, "docs-sr/");
       const TEMP_SR_FILE = toTempPath(__TEMP_ROOT__, SR_FILE);
 
-      const r = run(
-        process.execPath,
-        [path.join("scripts", "analyze-changes.mjs"), FILE, SR_FILE],
-        {
-          stdio: "pipe",
-          shell: false,
-          encoding: "utf8",
-        }
-      );
-
-      const raw = (r.stdout ?? "").toString().trim();
-      const ANALYZER_RESULT = stripStatusPrefixes(raw);
+      const ANALYZER_RESULT = determineAnalyzerResult(FILE, SR_FILE, STATUS);
 
       switch (ANALYZER_RESULT) {
         case "NO_CHANGES":
@@ -840,18 +849,7 @@ try {
       const EN_FILE = FILE.replace(/^docs-sr\//, "docs-en/");
       const TEMP_EN_FILE = toTempPath(__TEMP_ROOT__, EN_FILE);
 
-      const r = run(
-        process.execPath,
-        [path.join("scripts", "analyze-changes.mjs"), FILE, EN_FILE],
-        {
-          stdio: "pipe",
-          shell: false,
-          encoding: "utf8",
-        }
-      );
-
-      const raw = (r.stdout ?? "").toString().trim();
-      const ANALYZER_RESULT = stripStatusPrefixes(raw);
+      const ANALYZER_RESULT = determineAnalyzerResult(FILE, EN_FILE, STATUS);
 
       switch (ANALYZER_RESULT) {
         case "NO_CHANGES":
