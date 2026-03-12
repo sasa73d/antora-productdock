@@ -133,14 +133,17 @@ function extractRemovedAdded(diffOutput) {
   return { removed, added };
 }
 
+function isListingBlockAttributeLine(line) {
+  const trimmed = line.trim();
+  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
+}
+
 function isMetadataLine(line) {
   const trimmed = line.trim();
 
   if (/^:[^:]+:\s*.*$/.test(trimmed)) return true;
   if (trimmed.startsWith('//')) return true;
-  if (/^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed)) {
-    return true;
-  }
+  if (isListingBlockAttributeLine(trimmed)) return true;
 
   return false;
 }
@@ -181,11 +184,6 @@ function normalizeLines(lines) {
   unique.sort((a, b) => a.localeCompare(b, 'en'));
 
   return unique;
-}
-
-function isListingBlockAttributeLine(line) {
-  const trimmed = line.trim();
-  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
 }
 
 function isBacktickFence(line) {
