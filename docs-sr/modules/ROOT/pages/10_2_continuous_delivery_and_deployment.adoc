@@ -1,0 +1,75 @@
+:translation-source: sr
+:page-lang: sr
+==== *10.2 Kontinuirana isporuka i deployment (CD)*
+
+*Continuous Delivery (CD)* nastavlja se na CI i omogućuje da se stabilna verzija aplikacije brzo i često distribuira na ciljna okruženja. U MuleSoft okruženju, to najčešće znači automatski deploy na CloudHub ili Runtime Fabric putem scripti. Već smo spominjali Mule Maven Plugin koji podržava deploy:
+
+[mermaid,mulesoft-cd-workflow,svg]
+....
+flowchart TD
+    A["CI Build Artifact (.jar)"]
+    B["Mule Maven Plugin"]
+    C["Authenticate to Anypoint Platform"]
+    D["Upload Application Artifact"]
+    E["Apply Environment Properties"]
+    F["Deploy to Runtime"]
+    G["Application Running"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Mule Maven Plugin deploy:* U pom.xml se konfiguriše plugin sa target environment detaljima (tipically username, password/API token, environment, bizGroup, itd.). Komandom mvn deploy ili specifično mvn mule:deploy plugin će: (1) povezati se na Anypoint Platform, (2) uploadovati jar fajl kao novu aplikaciju ili novu verziju postojeće, (3) postaviti konfiguracione properties (može se definisati u pom-u), i (4) pokrenuti aplikaciju na CloudHub (ili drugi target). Plugin podržava CloudHub, on-prem (Runtime Manager agent ili API) i RTF . Dakle, jednom kada je plugin konfigurisan, _CI pipeline samo pozove ovu komandu_ za odgovarajući environment po potrebi. Mogu se definisati različiti Maven profile za dev/test/prod environment deploy kako bi npr. išlo na različite Anypoint credentials ili imena aplikacija.
+
+* *Env promotion vs fresh deploy:* Neke organizacije vole “promovisati” istu aplikaciju kroz env (npr. istu app pomerati iz dev u test u prod). Na CloudHub-u ne postoji direktan “promote” dugme, već to radite redeploy-om (moguće sa istim artifactId ali environment=prod). Drugi pristup je imati odvojene deploymente (npr. myapp-dev i myapp-prod kao dve odvojene aplikacije na platformi). Koji god pristup, CD pipeline treba to da adresira: ili jednom buildanom artifactu mijenja environment parametre i redeploya ga na viši environment, ili gradi odvojeno za svaki environment sa različitim param. (No, preferira se build once, deploy many, da smo sigurni ista verzija ide gore).
+
+[mermaid,environment-promotion,svg]
+....
+flowchart TD
+    A["Build Once Artifact"]
+    B["Deploy to Dev"]
+    C["Deploy to Test"]
+    D["Deploy to Production"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+* *Automatski vs manuelni trigger:* Continuous _Deployment_ implicira automatski deploy čak do produkcije. Neke organizacije to rade – svaka promjena koja prođe testove automatski se pušta korisnicima (obično one practicing trunk based development i feature flagove). U integracijama koje su često core backend servisi, češće imamo *Continuous Delivery*: artefakt je spreman, ali ljudska intervencija odobri prelazak u prod. U praksi: CI pipeline automatski deploya na dev environment (svaku promjenu, jer je dev interno), možda i na test environment (posle merge-a u main), a za prod environment se čeka “Approve” step (u Jenkins-u može biti input step, ili se koristi release management alat). Ovakav _gated deployment_ i dalje dobija sve benefite automatizacije (manje šansi za grešku, brži deploy), ali ispunjava i compliance (ne ide u prod bez odobrenja).
+
+* *DevOps kultura:* DevOps u MuleSoft-u ne odnosi se samo na alate već i na timsku kulturu. Često, MuleSoft integracije su dio šireg enterprisea, te se Mule dev tim integrira sa centralnim DevOps timom ili praksama. Na primjer, koriste iste git branching strategije kao i ostali (GitFlow, trunk, etc.), isto CI platform, prate enterprise guidelines. DevOps cilj je da se *razbije barijera* između developera i operacija: developer je uključен i u monitoring i poboljšanje nakon deploya (što smo pokrili u poglavlju 9). Prava DevOps kultura znači i da se problemi u produkciji tretiraju kolektivno – npr. post-mortem analiza incidenta gdje dev i ops zajedno utvrde uzroke i mjere.
+
+* *Infrastruktura kao kod:* Ako se Mule aplikacije deployaju na RTF (Kubernetes) ili on-prem/hybrid, DevOps može uključiti i Terraform ili slične alate za postavljanje infrastrukture. CloudHub eliminiše dosta infra briga, ali u RTF scenariju, CI/CD pipeline može uključivati i korake za Mule container build, push to container registry, pa deploy na RTF cluster (to je posebnija tema, ali spada u Napredne DevOps prakse za Mule).
+
+[mermaid,example-cicd-pipeline,svg]
+....
+flowchart TD
+    A["Checkout Source"]
+    B["Build and Test"]
+    C["Quality Gate"]
+    D["Package Artifact"]
+    E["Deploy to Dev"]
+    F["Integration Tests / QA"]
+    G["Manual Approval"]
+    H["Deploy to Production"]
+    I["Notifications"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+....
+
+* *Pipeline scenariji primjera:* Recimo, tipičan Jenkinsfile za Mule projekt:  
+Stages: Checkout → Build & Test (mvn clean verify) → Quality Gate (run SonarQube analysis) → Package (mvn package) → Deploy to Dev (mvn mule:deploy -Pdev) → Parallel (maybe run integration tests against dev env or do manual QA) → Approve Manual Step → Deploy to Prod (mvn mule:deploy -Pprod) → Notify (slack/email).  
+
+Ovakav pipeline automatizuje sve glavne korake i pruža audit trail (možete vidjeti log svakog koraka, ko je odobrio deploy, itd.).

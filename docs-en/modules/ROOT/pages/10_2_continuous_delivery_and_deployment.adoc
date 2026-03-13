@@ -1,0 +1,75 @@
+:translation-source: sr
+:page-lang: en
+==== *10.2 Continuous Delivery and Deployment (CD)*
+
+*Continuous Delivery (CD)* builds on CI and enables a stable version of the application to be quickly and frequently distributed to target environments. In the MuleSoft environment, this usually means automatic deployment to CloudHub or Runtime Fabric via scripts. We have already mentioned the Mule Maven Plugin which supports deployment:
+
+[mermaid,mulesoft-cd-workflow,svg]
+....
+flowchart TD
+    A["CI Build Artifact (.jar)"]
+    B["Mule Maven Plugin"]
+    C["Authenticate to Anypoint Platform"]
+    D["Upload Application Artifact"]
+    E["Apply Environment Properties"]
+    F["Deploy to Runtime"]
+    G["Application Running"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Mule Maven Plugin deploy:* The plugin is configured in the pom.xml file with target environment details (typically username, password/API token, environment, bizGroup, etc.). Using the mvn deploy command or specifically mvn mule:deploy, the plugin will: (1) connect to the Anypoint Platform, (2) upload the jar file as a new application or a new version of an existing one, (3) set configuration properties (can be defined in the pom), and (4) start the application on CloudHub (or another target). The plugin supports CloudHub, on-prem (Runtime Manager agent or API), and RTF. Thus, once the plugin is configured, the _CI pipeline only calls this command_ for the appropriate environment as needed. Different Maven profiles can be defined for dev/test/prod environment deploys to, for example, use different Anypoint credentials or application names.
+
+* *Env promotion vs fresh deploy:* Some organizations prefer to “promote” the same application through environments (e.g., move the same app from dev to test to prod). On CloudHub, there is no direct “promote” button, so this is done via redeploy (possible with the same artifactId but environment=prod). Another approach is to have separate deployments (e.g., myapp-dev and myapp-prod as two separate applications on the platform). Whatever the approach, the CD pipeline should address it: either change the environment parameters of a single built artifact and redeploy it to a higher environment, or build separately for each environment with different parameters. (However, build once, deploy many is preferred to ensure the same version is deployed).
+
+[mermaid,environment-promotion,svg]
+....
+flowchart TD
+    A["Build Once Artifact"]
+    B["Deploy to Dev"]
+    C["Deploy to Test"]
+    D["Deploy to Production"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+* *Automatic vs manual trigger:* Continuous _Deployment_ implies automatic deployment even to production. Some organizations do this – every change that passes tests is automatically released to users (usually those practicing trunk-based development and feature flags). In integrations that are often core backend services, more common is *Continuous Delivery*: the artifact is ready, but human intervention approves the transition to production. In practice: the CI pipeline automatically deploys to the dev environment (every change, since dev is internal), maybe also to the test environment (after merging to main), and for the prod environment waits for an “Approve” step (in Jenkins this can be an input step, or a release management tool is used). Such _gated deployment_ still gains all the benefits of automation (less chance of error, faster deploy) but also meets compliance (does not go to prod without approval).
+
+* *DevOps culture:* DevOps in MuleSoft is not only about tools but also about team culture. Often, MuleSoft integrations are part of a broader enterprise, so the Mule dev team integrates with the central DevOps team or practices. For example, they use the same git branching strategies as others (GitFlow, trunk, etc.), the same CI platform, follow enterprise guidelines. The goal of DevOps is to *break down the barrier* between developers and operations: the developer is involved in monitoring and improvement after deployment (covered in chapter 9). True DevOps culture means that production issues are dealt with collectively – e.g., post-mortem incident analysis where dev and ops jointly identify causes and measures.
+
+* *Infrastructure as code:* If Mule applications are deployed on RTF (Kubernetes) or on-prem/hybrid, DevOps can also include Terraform or similar tools for provisioning infrastructure. CloudHub removes many infra concerns, but in the RTF scenario, the CI/CD pipeline may include steps for building the Mule container, pushing to a container registry, then deploying to the RTF cluster (this is a more advanced topic, but falls under Advanced DevOps practices for Mule).
+
+[mermaid,example-cicd-pipeline,svg]
+....
+flowchart TD
+    A["Checkout Source"]
+    B["Build and Test"]
+    C["Quality Gate"]
+    D["Package Artifact"]
+    E["Deploy to Dev"]
+    F["Integration Tests / QA"]
+    G["Manual Approval"]
+    H["Deploy to Production"]
+    I["Notifications"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+....
+
+* *Pipeline example scenarios:* For instance, a typical Jenkinsfile for a Mule project:  
+Stages: Checkout → Build & Test (mvn clean verify) → Quality Gate (run SonarQube analysis) → Package (mvn package) → Deploy to Dev (mvn mule:deploy -Pdev) → Parallel (maybe run integration tests against dev env or do manual QA) → Approve Manual Step → Deploy to Prod (mvn mule:deploy -Pprod) → Notify (slack/email).  
+
+Such a pipeline automates all main steps and provides an audit trail (you can see the log of each step, who approved the deploy, etc.).
