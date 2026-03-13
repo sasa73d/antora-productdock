@@ -67,4 +67,4 @@ _(📎 *Dokumentacija:* MuleSoft dokument “Testing Mule Applications with MUni
 * https://docs.mulesoft.com/munit/latest/assertion-event-processor[MUnit Assertions, window="_blank"]
 * https://docs.mulesoft.com/munit/latest/test-recorder[MUnit Test Recorder, window="_blank"]
 
-* link:https://docs.google.com/forms/d/e/1FAIpQLSeHG-nu_P9b8_8OjugJyNwv9BFk694QKo3K8d-nra7PXiPS5w/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
+* link:https://docs.google.com/forms/d/e/1FAIpQLScDxIirfe1Imv1ZkaP-M28oaRib9VD3PHHBHoZ8Qxpbkd-qpA/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

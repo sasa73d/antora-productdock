@@ -1,0 +1,22 @@
+:translation-source: sr
+:page-lang: sr
+=== *9. Put ka produkciji*
+
+Do sada smo se fokusirali na razvojni ciklus: kako dizajnirati Mule aplikaciju i osigurati da radi ispravno (uključujući testove). Sada prelazimo na *fazu prelaska ka produkcionom okruženju*. Ovo uključuje više aspekata: pripremu aplikacije za produkciju, DevOps procese za build i deploy, konfiguraciju okruženja, monitoring i operativne prakse. Ovaj dio je most između razvoja i kontinuiranog rada aplikacije u “pravom svijetu”.
+
+[mermaid,mule-path-to-production,svg]
+....
+flowchart TD
+    A["Development"]
+    B["Testing (MUnit)"]
+    C["Build with Maven"]
+    D["CI/CD Pipeline"]
+    E["Deploy to Runtime (CloudHub / On-Prem)"]
+    F["Monitoring and Operations"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....

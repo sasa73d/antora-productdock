@@ -1,0 +1,22 @@
+:translation-source: sr
+:page-lang: en
+=== *9. Path to Production*
+
+So far we have focused on the development cycle: how to design a Mule application and ensure it works correctly (including tests). Now we move to the *phase of moving to the production environment*. This includes multiple aspects: preparing the application for production, DevOps processes for build and deploy, environment configuration, monitoring, and operational practices. This part is the bridge between development and continuous operation of the application in the “real world”.
+
+[mermaid,mule-path-to-production,svg]
+....
+flowchart TD
+    A["Development"]
+    B["Testing (MUnit)"]
+    C["Build with Maven"]
+    D["CI/CD Pipeline"]
+    E["Deploy to Runtime (CloudHub / On-Prem)"]
+    F["Monitoring and Operations"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
