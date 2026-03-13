@@ -1,0 +1,13 @@
+:translation-source: sr
+:page-lang: en
+= 3. First Mule 4 Project – Conceptual Overview
+
+After practically creating a simple flow, we will now conceptually analyze what we actually did and introduce the basic concepts of the Mule platform. Here we are moving from “clicks” in Studio to understanding how Mule works, which will enable us to build more complex projects on a solid foundation.
+
+[mermaid,chapter3-conceptual-shift,svg]
+....
+graph LR
+A[Working in Anypoint Studio\nClicks and configuration] --> B[Understanding Mule concepts]
+B --> C[Better understanding of integrations]
+C --> D[Building more complex Mule projects]
+....
