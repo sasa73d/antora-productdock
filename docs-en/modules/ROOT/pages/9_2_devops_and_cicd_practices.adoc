@@ -1,0 +1,55 @@
+:translation-source: sr
+:page-lang: en
+==== *9.2 DevOps and CI/CD Practice*
+
+The real path to production today means having an implemented *CI/CD (Continuous Integration/Continuous Deployment)* pipeline. In the MuleSoft context:
+
+[mermaid,mule-cicd-pipeline,svg]
+....
+flowchart TD
+    A["Developer Commit (Git)"]
+    B["CI Pipeline Trigger"]
+    C["Maven Build"]
+    D["Run MUnit Tests"]
+    E["Package Mule Application"]
+    F["Artifact Repository"]
+    G["Deploy to Runtime (CloudHub / RTF / On-Prem)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Code repository (VCS):* All Mule projects should be under version control (git). This enables collaboration and integration with the CI tool.
+
+* *Build automation:* Maven is used to build the Mule application (the project is a Maven project). When code is pushed to the repo (or a release tag is created), the CI server (Jenkins, GitLab CI, Azure DevOps, etc.) triggers a Maven build: it compiles (in case of custom policies or any Java code), packages the application into a deploy package (Mule .jar i.e. deployable archive), and of course runs tests. *Integration goal:* every code change is automatically tested – if tests or compilation fail, the team is notified and the process halts.
+
+* *Continuous Deployment:* The MuleSoft Maven plugin even supports automatic deploy to the Anypoint Platform (CloudHub, RTF, or Runtime Manager on-prem). In practice, after a successful build and tests, the pipeline can run the mvn mule:deploy command with the appropriate environment parameters and deploy the application. Alternatively, some organizations have an approval step instead of direct deploy – e.g. the pipeline prepares the package and then the ops team triggers the deploy manually or semi-automatically. In any case, *consistent and scripted deploy* is important: it minimizes human error (e.g., forgetting to change some parameter).
+
+[mermaid,mule-deployment-options,svg]
+....
+flowchart TD
+    A["CI/CD Pipeline"]
+    B["Mule Maven Plugin"]
+    C["Anypoint Platform API"]
+    D["CloudHub"]
+    E["Runtime Fabric"]
+    F["On-Prem Runtime Manager"]
+
+    A --> B
+    B --> C
+    C --> D
+    C --> E
+    C --> F
+....
+
+* *CI/CD for Mule supports multiple tools:* Popular is *Jenkins* – MuleSoft has guides for integration with Jenkins pipelines. There are also _CloudHub CLI_ or _Anypoint Platform REST API_ which enable programmatic deploy (the Mule Maven plugin actually uses the API behind the scenes). *Important:* the pipeline should also cover integrations with code quality tests (e.g., Sonar scan), artifactory (to store the built jar artifact somewhere), and notifications.
+
+* *Configuration of separate environments:* CI/CD needs to smartly handle configurations – a common approach is to keep _environment parameters_ (like endpoints, credentials) in separate property files or inject them as CI pipeline variables. For example, Jenkins can hold secure variables for production passwords, and the plugin sets them during deploy. CloudHub also allows defining “Application Properties” in Anypoint Platform specific to each environment, which is a good method (this overrides default properties).
+
+The advantages of adopting CI/CD are enormous: faster and more reliable deliveries, the ability for frequent deploys (even up to *Continuous Deployment* level where every change after testing can automatically go to production if that is the policy). Of course, many organizations have manual gating for production (change management), but CI/CD helps there as well by automating everything up to that step.
+
+MuleSoft supports this approach – an example from documentation shows that Mule developers frequently automatically deploy from GitHub and Jenkins. Essentially, there is nothing significantly different compared to CI/CD of other applications except that MuleSoft’s plugin is used for deployment targets.

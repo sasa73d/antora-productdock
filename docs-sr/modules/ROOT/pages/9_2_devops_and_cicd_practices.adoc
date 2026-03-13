@@ -1,0 +1,55 @@
+:translation-source: sr
+:page-lang: sr
+==== *9.2 DevOps i CI/CD praksa*
+
+Pravi put ka produkciji danas znači imati implementiran *CI/CD (Continuous Integration/Continuous Deployment)* pipeline. U MuleSoft kontekstu:
+
+[mermaid,mule-cicd-pipeline,svg]
+....
+flowchart TD
+    A["Developer Commit (Git)"]
+    B["CI Pipeline Trigger"]
+    C["Maven Build"]
+    D["Run MUnit Tests"]
+    E["Package Mule Application"]
+    F["Artifact Repository"]
+    G["Deploy to Runtime (CloudHub / RTF / On-Prem)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Repozitorij koda (VCS):* Svi Mule projekti trebaju biti pod kontrolom verzije (git). To omogućava kolaboraciju i integraciju sa CI alatom.
+
+* *Build automatizacija:* Koristi se Maven za gradnju Mule aplikacije (projekt je Maven projekat). Kada se kod push-a na repo (ili napravi release tag), CI server (Jenkins, GitLab CI, Azure DevOps, itd.) pokreće Maven build: kompajlira (u slučaju custom policy ili nekog Javnog koda), spakuje aplikaciju u deploy paket (Mule .jar tzv. deployable archive), i naravno pokreće testove. *Cilj integracije*: svaka promjena koda testira se automatski – ako testovi ili kompajliranje padnu, tim dobije obavještenje i ne ide dalje.
+
+* *Continuous Deployment:* MuleSoft Maven plugin podržava čak i automatski deploy na Anypoint Platformu (CloudHub, RTF, ili u Runtime Manager on-prem) . U praksi, pipeline nakon uspješnog builda i testova može izvršiti naredbu mvn mule:deploy sa odgovarajućim parametrima environmenta i deployati aplikaciju . Alternativno, neke organizacije umjesto direknog deploya imaju korak odobrenja – npr. pipeline pripremi paket i onda ops tim trigguje deploy ručno ili poluautomatski. U svakom slučaju, *dosljedan i skriptovan deploy* je bitan: minimizira ljudsku grešku (npr. zaboraviti promijeniti neki parametar).
+
+[mermaid,mule-deployment-options,svg]
+....
+flowchart TD
+    A["CI/CD Pipeline"]
+    B["Mule Maven Plugin"]
+    C["Anypoint Platform API"]
+    D["CloudHub"]
+    E["Runtime Fabric"]
+    F["On-Prem Runtime Manager"]
+
+    A --> B
+    B --> C
+    C --> D
+    C --> E
+    C --> F
+....
+
+* *CI/CD za Mule podržava više alata:* Popularan je *Jenkins* – MuleSoft ima vodiče za integraciju sa Jenkins pipeline-om . Tu su i _CloudHub CLI_ ili _Anypoint Platform REST API_ koji omogućavaju programatski deploy (Mule Maven plugin zapravo koristi API u pozadini). *Bitno:* pipeline treba da pokrije i integracije sa testovima kvaliteta koda (npr. Sonar scan), artifactory (da se buildani jar artefakt negdje čuva), i notifikacije.
+
+* *Konfiguracija odvojenih environmenta:* CI/CD treba pametno rukovati konfiguracijama – čest pristup je da se _parametri environmenta_ (poput endpoints, credentials) drže u zasebnim property fajlovima ili se injektuju kao CI pipeline varijable. Npr. Jenkins može držati secure varijable za prod lozinke, i plugin prilikom deploya ih postavi. CloudHub omogućava i kroz Anypoint Platform definisanje “Application Properties” specifičnih po environmentu, što je dobar način (to prepisuje default properties).
+
+Prednosti uvođenja CI/CD su ogromne: brže i pouzdanije isporuke, mogućnost čestih deploya (čak i do *Continuous Deployment* nivoa gdje svaka promjena nakon testiranja može automatski ići u prod ako je to politika). Naravno, mnoge organizacije imaju ručni gating za produkciju (change management), ali CI/CD i tu pomaže jer automatizuje sve do tog koraka.
+
+MuleSoft podržava ovaj pristup – primjer iz dokumentacije navodi da Mule devovi često automatski deployaju sa GitHub-a i Jenkins-a . U suštini, nije ništa specifično drugačije u odnosu na CI/CD drugih aplikacija, osim što se koristi MuleSoft-ov plugin za deploy destinacije.
