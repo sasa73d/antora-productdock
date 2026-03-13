@@ -1,0 +1,55 @@
+:translation-source: sr
+:page-lang: sr
+== 4.2 DataWeave u praksi – način razmišljanja i alati
+
+Sada kada znamo šta je DataWeave, fokusiraćemo se na kako ga primijeniti u praksi. Pisanje DataWeave skripti zahtijeva malo drugačiji način razmišljanja od klasičnog imperativnog programiranja. Evo nekoliko smjernica:
+
+[mermaid,dataweave-thinking-model,svg]
+....
+graph LR
+Input_Data --> DataWeave_Script
+DataWeave_Script --> Output_Data
+....
+
+*Deklarativni pristup vs. imperativni:*
+U klasičnim jezicima (Java, C# itd.) često bismo pisali niz koraka: uzmi podatak, transformiši dio, petlja kroz listu itd. U DataWeave-u razmišljamo deklarativno: kako treba da izgleda rezultat? Skripta više liči na opis željene strukture rezultata, gdje na desnoj strani koristimo ulazne podatke. Na primjer, ako transformišemo listu objekata, često će DW skripta biti samo oblik izlaznog JSON-a sa izrazima koji mapiraju polja iz ulaza u polja izlaza. Tehnički detalji iteracije kroz listu su implicitni – DW to rješava “ispod haube”. Ovakav stil može zahtijevati privikavanje, ali omogućava da se fokusiramo na poslovnu transformaciju a ne na kodiranje petlji.
+
+*Funkcionalno razmišljanje:*
+DataWeave je inspirisan funkcionalnim programskim jezicima. To znači da umjesto promjenljivih koje mijenjamo tokom postupka, radimo s funkcijama koje dobiju input i vraćaju output bez sporednih efekata. Primjera radi, ako želimo filtrirati listu, nećemo prolaziti i graditi novu listu ručno, već koristimo ugrađenu funkciju filter da dobijemo podskup. Slično, za transformaciju svakog elementa liste koristimo map, za agregaciju reduce, itd. Ove funkcije su dostupne kao dio DW standardne biblioteke. Važno je usvojiti ovaj mentalni model: razmišljati u terminima što treba uraditi sa kolekcijom (npr. “želim izvući ova polja i filtrirati one objekte gdje je status=X”), a DataWeave nudi operator ili funkciju koja to ostvaruje u jednoj izrazu.
+
+[mermaid,dataweave-functional-operations,svg]
+....
+graph LR
+Collection --> Filter
+Filter --> Map
+Map --> Reduce
+Reduce --> Result
+....
+
+*Iskorištavanje alata za DW:*
+MuleSoft obezbjeđuje odlične alate da bi rad sa DataWeave-om bio lakši. Prije svega, u Anypoint Studio-u Transform Message komponenta pruža grafički prikaz i tzv. preview – možemo učitati sample input i dok pišemo DW skriptu vidimo rezultat u realnom vremenu. To je veoma korisno za eksperimentisanje i provjeru. Pored toga, tu je DataWeave Playground – web alat (playground.mulesoft.com) gdje možemo pisati i izvršavati DataWeave skripte direktno u browseru. Playground omogućava da testiramo transformacije izolovano od Mule aplikacije, što je odlično za vježbu: možemo brzo isprobati sintaksu, vidjeti kako da parsujemo određeni format, isprobati funkcije itd. Preporuka za učenje DataWeave-a je da paralelno koristite Playground za eksperimentisanje s malim primjerima. To pomaže da se DataWeave shvati kao jezik, ne samo kao “kutija” u Mule-u.
+
+[mermaid,dataweave-tools,svg]
+....
+graph LR
+Developer --> Anypoint_Studio
+Developer --> DataWeave_Playground
+Anypoint_Studio --> Transform_Message
+Transform_Message --> Live_Preview
+DataWeave_Playground --> Script_Testing
+....
+
+*Postepeno učenje i primjena:*
+DataWeave je moćan, ali ne treba se obeshrabriti ako kompleksnije skripte djeluju teške na početku. Počnite s prostijim transformacijama, koristite mnogo komentara (DW koristi // za komentare) u skripti dok eksperimentišete, i oslanjajte se na zvaničnu dokumentaciju i primjere. MuleSoft dokumentacija ima detaljna objašnjenja sintakse i mnoštvo primjera za razne slučajeve (npr. dokument DataWeave Language Guide pokriva sve detalje sintakse). Takođe, zajednica (forums.mulesoft.com) je aktivna – vjerovatno je neko već pitao kako uraditi određenu transformaciju, pa se rješenja mogu pronaći.
+
+Za kraj ove sekcije, važno je naglasiti: DataWeave je ključna vještina za Mule developera. Nakon ovog uvodnog dijela, trebalo bi da razumijete zašto je DataWeave uveden (jednostavnije, konzistentnije transformacije) i gdje se sve koristi u Mule aplikaciji (svuda gdje radimo s podacima). U sljedećim dijelovima tutorijala nastavićemo ka praktičnijim aspektima – kako pisati konkretne DW transformacije, kako se DataWeave uklapa u izvršavanje Mule aplikacije i kako utiče na njeno ponašanje – što će produbiti vaše razumijevanje integracija. Takođe, bavićemo se širim kontekstom: kako izgleda cijeli integracioni flow u praksi i gdje tačno DataWeave dolazi do izražaja u sklopu tog flow-a.
+
+(📎 Dokumentacija za dalje čitanje: Zvanični DataWeave Reference Documentation na MuleSoft sajtu daje sve detalje jezika, uključujući liste funkcija, operatore, i primjere za uobičajene transformacije. Takođe, DataWeave Playground dostupan je online za interaktivno isprobavanje koda.)
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/dataweave[Šta je DataWeave]
+* https://docs.mulesoft.com/mule-runtime/latest/intro-expressions[DataWeave u Mule Eventu: - DataWeave u Mule Eventu]
+* https://developer.mulesoft.com/tutorials-and-howtos/dataweave/learn-dataweave-with-the-dataweave-playground-getting-started/[DataWeave Playground]
+* https://docs.mulesoft.com/dataweave/latest/dw-functions[DataWeave Language Guide]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeUcZwq_lTzT56GQ84ortmz_Fd3GAy-Wb08wra8ptuslN8wfQ/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

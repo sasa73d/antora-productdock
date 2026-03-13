@@ -1,0 +1,54 @@
+:translation-source: sr
+:page-lang: en
+== 4.2 DataWeave in Practice – Way of Thinking and Tools
+
+Now that we know what DataWeave is, we will focus on how to apply it in practice. Writing DataWeave scripts requires a somewhat different way of thinking than classical imperative programming. Here are some guidelines:
+
+[mermaid,dataweave-thinking-model,svg]
+....
+graph LR
+Input_Data --> DataWeave_Script
+DataWeave_Script --> Output_Data
+....
+
+*Declarative Approach vs. Imperative:*
+In classical languages (Java, C#, etc.) we would often write a series of steps: take data, transform part of it, iterate through a list, etc. In DataWeave, we think declaratively: how should the result look? The script resembles a description of the desired output structure, where on the right side we use input data. For example, if we are transforming a list of objects, often the DW script will just be the form of the output JSON with expressions that map fields from the input to the output fields. The technical details of iterating through the list are implicit – DW handles that “under the hood.” This style may require some adjustment but allows us to focus on the business transformation rather than coding loops.
+
+*Functional Thinking:*
+DataWeave is inspired by functional programming languages. This means that instead of variables that we change throughout the process, we work with functions that receive input and return output without side effects. For example, if we want to filter a list, we don’t loop and build a new list manually, but use the built-in filter function to get a subset. Similarly, for transforming each element of a list we use map, for aggregation reduce, etc. These functions are available as part of the DW standard library. It is important to adopt this mental model: think in terms of what should be done with the collection (e.g., “I want to extract these fields and filter objects where status=X”), and DataWeave offers an operator or function that achieves that in one expression.
+
+[mermaid,dataweave-functional-operations,svg]
+....
+graph LR
+Collection --> Filter
+Filter --> Map
+Map --> Reduce
+Reduce --> Result
+....
+
+*Leveraging DW Tools:*
+MuleSoft provides excellent tools to make working with DataWeave easier. First of all, in Anypoint Studio, the Transform Message component offers a graphical view and a so-called preview – we can load sample input and see the result in real time while writing the DW script. This is very useful for experimenting and verification. Additionally, there is the DataWeave Playground – a web tool (playground.mulesoft.com) where we can write and execute DataWeave scripts directly in the browser. The Playground allows testing transformations isolated from the Mule application, which is great for practice: we can quickly test syntax, see how to parse a certain format, try functions, etc. The recommendation for learning DataWeave is to use the Playground in parallel for experimenting with small examples. This helps to understand DataWeave as a language, not just a “box” inside Mule.
+
+[mermaid,dataweave-tools,svg]
+....
+graph LR
+Developer --> Anypoint_Studio
+Developer --> DataWeave_Playground
+Anypoint_Studio --> Transform_Message
+Transform_Message --> Live_Preview
+DataWeave_Playground --> Script_Testing
+....
+
+*Gradual Learning and Application:*
+DataWeave is powerful, but don’t be discouraged if more complex scripts seem difficult at first. Start with simpler transformations, use a lot of comments (DW uses // for comments) in the script while experimenting, and rely on official documentation and examples. MuleSoft documentation has detailed explanations of syntax and plenty of examples for various cases (e.g., the DataWeave Language Guide document covers all syntax details). Also, the community (forums.mulesoft.com) is active – someone probably has already asked how to do a specific transformation, and solutions can be found.
+
+To conclude this section, it is important to emphasize: DataWeave is a key skill for a Mule developer. After this introductory part, you should understand why DataWeave was introduced (simpler, more consistent transformations) and where it is used in the Mule application (everywhere we work with data). In the following parts of the tutorial, we will continue to more practical aspects – how to write concrete DW transformations, how DataWeave fits into Mule application execution, and how it affects its behavior – which will deepen your understanding of integrations. We will also address the broader context: what the entire integration flow looks like in practice and exactly where DataWeave comes into play within that flow.
+
+(📎 Documentation for further reading: The Official DataWeave Reference Documentation on the MuleSoft site provides all language details, including function lists, operators, and examples for common transformations. Also, DataWeave Playground is available online for interactive code testing.)
+
+* https://docs.mulesoft.com/mule-runtime/latest/dataweave[What is DataWeave]
+* https://docs.mulesoft.com/mule-runtime/latest/intro-expressions[DataWeave in Mule Event: - DataWeave in Mule Event]
+* https://developer.mulesoft.com/tutorials-and-howtos/dataweave/learn-dataweave-with-the-dataweave-playground-getting-started/[DataWeave Playground]
+* https://docs.mulesoft.com/dataweave/latest/dw-functions[DataWeave Language Guide]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeUcZwq_lTzT56GQ84ortmz_Fd3GAy-Wb08wra8ptuslN8wfQ/viewform?usp=publish-editor[Short Quiz for Knowledge Check, window="_blank"]
