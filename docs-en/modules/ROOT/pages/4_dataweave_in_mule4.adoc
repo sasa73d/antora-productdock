@@ -1,0 +1,14 @@
+:translation-source: sr
+:page-lang: en
+== 4. DataWeave in Mule 4
+
+One of the most important aspects of integrations is the transformation of data between different formats and structures. Mule 4 introduces DataWeave as the central language for working with data in integration flows. In this chapter, we will explain what DataWeave is, why it exists, where it is used, and how it fits into the Mule context.
+
+[mermaid,dataweave-role-in-mule,svg]
+....
+graph LR
+ClientRequest --> MuleFlow
+MuleFlow --> DataWeave
+DataWeave --> DataTransformation
+DataTransformation --> TargetSystem
+....

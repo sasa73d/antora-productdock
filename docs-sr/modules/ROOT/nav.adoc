@@ -3,3 +3,4 @@
 * xref:2_getting_started_with_mule4.adoc[2. Kako početi sa Mule 4 (Praktični fokus)]
 * xref:3_first_mule4_project.adoc[3. Prvi Mule 4 projekat – Konceptualni pregled]
 ** xref:3_1_anypoint_studio_environment_overview.adoc[3.1 Upoznavanje sa Anypoint Studio okruženjem]
+* xref:4_dataweave_in_mule4.adoc[4. DataWeave u Mule 4]

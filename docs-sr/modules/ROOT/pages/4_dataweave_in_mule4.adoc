@@ -1,0 +1,14 @@
+:translation-source: sr
+:page-lang: sr
+== 4. DataWeave u Mule 4
+
+Jedan od najvažnijih aspekata integracija je transformacija podataka između različitih formata i struktura. Mule 4 uvodi DataWeave kao centralni jezik za rad sa podacima u integracionim tokovima. U ovom poglavlju objasnićemo šta je DataWeave, zašto postoji, gdje se koristi i kako se uklapa u Mule kontekst.
+
+[mermaid,dataweave-role-in-mule,svg]
+....
+graph LR
+ClientRequest --> MuleFlow
+MuleFlow --> DataWeave
+DataWeave --> DataTransformation
+DataTransformation --> TargetSystem
+....
