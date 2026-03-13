@@ -22,3 +22,4 @@
 ** xref:9_2_devops_and_cicd_practices.adoc[9.2 DevOps i CI/CD praksa]
 ** xref:9_3_operations_monitoring_and_management.adoc[9.3 Operativna faza – monitoring i upravljanje]
 * xref:10_cicd_and_devops_in_mulesoft_ecosystem.adoc[10. CI/CD i DevOps u MuleSoft ekosistemu]
+** xref:10_1_continuous_integration_for_mule_applications.adoc[10.1 Kontinuirana integracija (CI) Mule aplikacija]

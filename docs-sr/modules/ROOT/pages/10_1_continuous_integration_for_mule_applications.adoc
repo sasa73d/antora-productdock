@@ -1,0 +1,51 @@
+:translation-source: sr
+:page-lang: sr
+==== *10.1 Kontinuirana integracija (CI) Mule aplikacija*
+
+*Kontinuirana integracija (CI)* podrazumijeva da se sve promjene u kodu često integrišu u glavnu granu repozitorijuma, uz automatsko testiranje svake promjene. U MuleSoft kontekstu, implementacija CI se ne razlikuje bitno od drugih platformi: koristimo standardne alate (Jenkins, GitLab CI, Azure DevOps pipelines, Bamboo, TeamCity itd.) . Ključne tačke:
+
+[mermaid,mulesoft-ci-workflow,svg]
+....
+flowchart TD
+    A["Developer Commit / Pull Request"]
+    B["CI Pipeline Trigger"]
+    C["Maven Build"]
+    D["Run MUnit Tests"]
+    E["Static Code Analysis"]
+    F["Build Artifact (.jar)"]
+    G["Artifact Repository"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Build i Unit test stage:* Svaki commit ili pull request okida build pipeline: Maven build se izvršava, svi MUnit testovi se pokreću. Ideja je da u bilo kom trenutku _main_ grana ima “zelen” (stabilan) build. Ako testovi padnu, CI označava build kao neuspješan i developeri odmah dobiju povratnu informaciju da nešto nije u redu. Time se problemi hvataju rano. CI sistem može slušati više branch-eva (feature branch testovi pre merge-a, i main branch testovi posle merge-a).
+
+* *Static code analysis stage:* Kao deo CI, često se ubacuje korak statičke analize koda radi kvaliteta i sigurnosti. Alati poput *SonarQube* mogu se integrisati da pregledaju Mule XML konfiguracije i eventualno prilagođen Java kod. Oni mogu detektovati code smells, duplikate ili sigurnosne rupe. IntegralZone i MuleSoft zajednica ponudili su Sonar profile za Mule. Tako CI pomaže održati standarde: build će možda biti markiran kao neuspješan ako, recimo, kôd ne prođe određeni kvalitetni prag (npr. previše dupliranog koda ili slaba pokrivenost testovima). Naravno, pravila se prilagođavaju timskim dogovorima.
+
+[mermaid,ci-quality-gates,svg]
+....
+flowchart TD
+    A["Source Code"]
+    B["Build"]
+    C["Unit Tests"]
+    D["Code Quality Scan"]
+    E["Quality Gate Passed"]
+    F["Build Rejected"]
+
+    A --> B
+    B --> C
+    C --> D
+    D -->|Pass| E
+    D -->|Fail| F
+....
+
+* *Artifactory/Nexus deployment:* Rezultat uspješnog builda Mule aplikacije je JAR fajl (nazvan ++*++.jar ili .mule, što je zapravo deployable archive). CI pipeline obično uploaduje taj artefakt u artefakt menadžer (npr. Nexus, JFrog Artifactory) kao verzionisan zapis. Ovo je važno jer želite očuvati tačno koju verziju ste pustili u prod. Odatle se može povući za ponovni deploy ili rollback po potrebi. Mule Maven plugin automatski može instalirati artefakt u Maven repo (lokalni ili cloud). Mnoge organizacije iskoriste to: svaki build ‘mvn deploy’ šalje jar u enterprise Maven repo.
+
+* *CI brzina i efikasnost:* Mule projekti obično nisu ogromni, tako da build i test ne bi trebalo da traju predugo. Ipak, ako test suite postane veoma opširan, možete razmotriti paralelno izvršavanje testova, ili razdvajanje integracionih testova od bržih unit testova (npr. MUnit ima i mogućnost categorization testova). Cilj je da CI feedback loop bude što kraći (idealno ispod 5–10 minuta za ne previše kompleksan projekt).
+
+Kada su ove prakse uspostavljene, tim dobija *pouzdanje* – znaju da integracije rade i da neće nešto slučajno polomiti bez da CI to detektuje. Tako se može brže iterirati sa funkcionalnostima.

@@ -1,0 +1,51 @@
+:translation-source: sr
+:page-lang: en
+==== *10.1 Continuous Integration (CI) of Mule Applications*
+
+*Continuous Integration (CI)* means that all code changes are frequently integrated into the main branch of the repository, with automatic testing of each change. In the MuleSoft context, implementing CI is not significantly different from other platforms: we use standard tools (Jenkins, GitLab CI, Azure DevOps pipelines, Bamboo, TeamCity, etc.). Key points:
+
+[mermaid,mulesoft-ci-workflow,svg]
+....
+flowchart TD
+    A["Developer Commit / Pull Request"]
+    B["CI Pipeline Trigger"]
+    C["Maven Build"]
+    D["Run MUnit Tests"]
+    E["Static Code Analysis"]
+    F["Build Artifact (.jar)"]
+    G["Artifact Repository"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Build and Unit test stage:* Each commit or pull request triggers the build pipeline: Maven build is executed, all MUnit tests run. The idea is that at any time the _main_ branch has a “green” (stable) build. If tests fail, CI marks the build as failed and developers immediately get feedback that something is wrong. This catches problems early. The CI system can listen to multiple branches (feature branch tests before merge, and main branch tests after merge).
+
+* *Static code analysis stage:* As part of CI, a static code analysis step is often included for quality and security. Tools like *SonarQube* can be integrated to scan Mule XML configurations and possibly custom Java code. They can detect code smells, duplicates, or security vulnerabilities. IntegralZone and the MuleSoft community have provided Sonar profiles for Mule. Thus, CI helps maintain standards: the build may be marked as failed if, for example, the code does not meet a certain quality threshold (e.g., too much duplicated code or poor test coverage). Naturally, rules are adjusted to team agreements.
+
+[mermaid,ci-quality-gates,svg]
+....
+flowchart TD
+    A["Source Code"]
+    B["Build"]
+    C["Unit Tests"]
+    D["Code Quality Scan"]
+    E["Quality Gate Passed"]
+    F["Build Rejected"]
+
+    A --> B
+    B --> C
+    C --> D
+    D -->|Pass| E
+    D -->|Fail| F
+....
+
+* *Artifactory/Nexus deployment:* The result of a successful Mule application build is a JAR file (named ++*++.jar or .mule, which is actually a deployable archive). The CI pipeline typically uploads that artifact into an artifact manager (e.g., Nexus, JFrog Artifactory) as a versioned record. This is important because you want to preserve exactly which version you released to production. From there, it can be retrieved for redeployment or rollback if needed. The Mule Maven plugin can automatically install the artifact in a Maven repo (local or cloud). Many organizations leverage this: every build ‘mvn deploy’ sends the jar to the enterprise Maven repo.
+
+* *CI speed and efficiency:* Mule projects are usually not huge, so builds and tests should not take too long. However, if the test suite becomes very extensive, you can consider parallel test execution, or separating integration tests from faster unit tests (e.g., MUnit also offers test categorization). The goal is to keep the CI feedback loop as short as possible (ideally under 5–10 minutes for a not too complex project).
+
+When these practices are established, the team gains *confidence* – they know that integrations work and that they won’t accidentally break something without CI detecting it. This enables faster iteration with features.
