@@ -1,0 +1,74 @@
+:translation-source: sr
+:page-lang: sr
+==== *9.3 Operativna faza – monitoring i upravljanje*
+
+Kada je aplikacija u produkciji, posao nije završen – sada prelazi u *monitoring i maintenance* fazu:
+
+[mermaid,production-monitoring-overview,svg]
+....
+flowchart TD
+    A["Running Mule Application"]
+    B["Metrics Monitoring"]
+    C["Centralized Logging"]
+    D["Alerts and Notifications"]
+    E["Operations Team Response"]
+
+    A --> B
+    A --> C
+    B --> D
+    C --> D
+    D --> E
+....
+
+* *Praćenje performansi i zdravlja:* Kao što smo pomenuli, *Anypoint Monitoring* alat (ili Third-party ako on-prem) treba koristiti za praćenje ključnih metrika. Proaktivno postaviti *alerte*: npr. ako CPU prelazi 80% konstantno, ili memorija se približava limitu, ili broj grešaka u minuti prelazi threshold, da tim dobije obavijest. MuleSoft Anypoint Platform omogućava definiranje takvih notifikacija.
+
+* *Log menadžment:* Osigurati centralizovano prikupljanje logova – npr. CloudHub automatski skuplja logove koje možemo gledati kroz platformu ili eksportovati u Splunk itd. Bitno je da logovi budu dostupni i pretraživi, tako da kad dođe do incidenta može se brzo pronaći uzrok. Upravo zbog toga je važno da log poruke budu informativne (ali ne preopširne) – to je balans koji smo ranije dotakli.
+
+[mermaid,log-management-flow,svg]
+....
+flowchart TD
+    A["Mule Application Logs"]
+    B["Central Log Aggregation"]
+    C["Log Analysis Platform"]
+    D["Search and Investigation"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+* *Runtime Manager operacije:* U Runtime Manager-u možete vidjeti pojedinosti aplikacije – memorija, treading, i možete raditi akcije poput redeploy, restart, promjena konfiguracije. Dobra praksa: imati *osnovnu dokumentaciju* za operativce – npr. “ova aplikacija očekuje te i te config parametre, ima dependancy na System X (treba da radi sistem X da integracija radi), etc.”. Tako u slučaju problema, NOC tim zna gdje gledati.
+
+* *Skaliranje:* Ako aplikacija dobija veće opterećenje nego planirano, treba biti spreman da je skalirate. U CloudHub-u to znači povećati broj worker-a ili veličinu worker-a (što se može scriptovati ili uraditi ručno brzo). MuleSoft omogućava Horizontalno i Vertikalno skaliranje – planirajte budžet i profile za to. Ako je on-prem, održavajte klaster ili RTF kapacitet za skaliranje. *Plan za capacity management* je dio “path to production”.
+
+[mermaid,scaling-options,svg]
+....
+flowchart TD
+    A["Production Load Increase"]
+    B["Vertical Scaling"]
+    C["Horizontal Scaling"]
+    D["Larger Worker Size"]
+    E["More Worker Instances"]
+
+    A --> B
+    A --> C
+    B --> D
+    C --> E
+....
+
+* *CI/CD u operacijama:* Continual Deployment znači i brze _rollout-e i rollback-e_. Treba definisati proces: ako nova verzija aplikacije prouzrokuje problem, kako vratiti staru brzo? Uz CI/CD to je često samo okidanje deploy pipeline-a za prethodnu verziju (ili klik na “deploy previous” u Runtime Manager-u ako ste sačuvali tu verziju). U svakom slučaju, budite spremni za rollback (i testirajte rollback scenario kad je moguće).
+
+* *Dokumentacija i pomoćni alati:* Ako je API u pitanju, API definicija i Portal treba biti ažuriran i dostupan korisnicima (to je takođe dio “prod spremnosti”). Ako su integracije batch ili schedule, pratiti njihove schedule – možda definisati dashboard kada su zadnji put uspješno izvršeni i koliko su trajali. Sve ovo spada u operativni nadzor integracija.
+
+Možemo reći da prelaskom aplikacije u produkciju, razvojni tim donekle prelazi u ulogu _DevOps/SRE_ za tu aplikaciju: reaguje na alarme, optimizuje u hodu, planira unapređenja. *Cilj* je da se održi *stabilnost* i pouzdanost integracije u vremenu, čak i dok se možda nove verzije isporučuju. Uz dobru automatizaciju, većina rutinskih stvari (deploy, scale, monitor) se obavlja efikasno, pa tim može fokusirati na unapređenje funkcionalnosti.
+
+_(Napomena: Mnogi elementi ovog poglavlja oslanjaju se na specifičnosti platforme (CloudHub vs on-prem). Suštinski principi su isti: automatizuj i kontroliraj što više možeš. MuleSoft je svjestan ovoga i pruža alate, ali na timu je da ih iskoristi i uklopi u širu sliku devops procesa u organizaciji.)_
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/tuning-guide[Performance Tuning, window="_blank"]
+* https://www.mulesoft.com/integration/continuous-integration-continuous-delivery[DevOps i CI/CD, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/deploy-to-cloudhub[CloudHub Deployment, window="_blank"]
+* https://docs.mulesoft.com/monitoring/alerts[Anypoint Monitoring i Runtime Manager, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSd9BQi9oljGt6mRblNELOuy1G9Bg8FySa-UAfjfSLgy1ROQ_g/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

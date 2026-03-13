@@ -1,0 +1,74 @@
+:translation-source: sr
+:page-lang: en
+==== *9.3 Operational phase – monitoring and management*
+
+When the application is in production, the job is not finished – it now transitions into the *monitoring and maintenance* phase:
+
+[mermaid,production-monitoring-overview,svg]
+....
+flowchart TD
+    A["Running Mule Application"]
+    B["Metrics Monitoring"]
+    C["Centralized Logging"]
+    D["Alerts and Notifications"]
+    E["Operations Team Response"]
+
+    A --> B
+    A --> C
+    B --> D
+    C --> D
+    D --> E
+....
+
+* *Performance and health monitoring:* As mentioned, the *Anypoint Monitoring* tool (or third-party if on-prem) should be used to track key metrics. Proactively set *alerts*: e.g. if CPU exceeds 80% continuously, or memory approaches the limit, or the error rate per minute exceeds the threshold, so the team receives notifications. MuleSoft Anypoint Platform allows for defining such notifications.
+
+* *Log management:* Ensure centralized log collection – e.g. CloudHub automatically collects logs that can be viewed through the platform or exported to Splunk, etc. It is important that logs are accessible and searchable, so when an incident occurs the cause can be quickly identified. That is why it is important that log messages are informative (but not overly verbose) – this is a balance we touched on earlier.
+
+[mermaid,log-management-flow,svg]
+....
+flowchart TD
+    A["Mule Application Logs"]
+    B["Central Log Aggregation"]
+    C["Log Analysis Platform"]
+    D["Search and Investigation"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+* *Runtime Manager operations:* In Runtime Manager, you can see application details – memory, threading, and you can perform actions like redeploy, restart, change configuration. Good practice: have *basic documentation* for operators – e.g. “this application expects these config parameters, has dependency on System X (System X must be running for the integration to work), etc.”. So in case of problems, the NOC team knows where to look.
+
+* *Scaling:* If the application receives higher load than planned, be prepared to scale it. In CloudHub this means increasing the number of workers or the size of the worker (which can be scripted or done manually quickly). MuleSoft enables Horizontal and Vertical scaling – plan budget and profiles accordingly. If on-prem, maintain cluster or RTF capacity for scaling. *Capacity management plan* is part of the “path to production”.
+
+[mermaid,scaling-options,svg]
+....
+flowchart TD
+    A["Production Load Increase"]
+    B["Vertical Scaling"]
+    C["Horizontal Scaling"]
+    D["Larger Worker Size"]
+    E["More Worker Instances"]
+
+    A --> B
+    A --> C
+    B --> D
+    C --> E
+....
+
+* *CI/CD in operations:* Continuous Deployment means fast _rollouts and rollbacks_. Define a process: if a new version causes a problem, how to quickly revert to the previous one? With CI/CD this often means simply triggering the deployment pipeline for the previous version (or clicking “deploy previous” in Runtime Manager if you saved that version). In any case, be prepared for rollback (and test rollback scenarios when possible).
+
+* *Documentation and auxiliary tools:* If it’s an API, the API definition and Portal should be updated and available to users (this is also part of “production readiness”). If integrations are batch or scheduled, monitor their schedules – perhaps define a dashboard showing when they last successfully ran and their duration. All this falls under operational integration oversight.
+
+We can say that by moving the application to production, the development team somewhat transitions into the role of _DevOps/SRE_ for that application: responding to alerts, optimizing on the fly, planning improvements. The *goal* is to maintain *stability* and reliability of the integration over time, even while new versions may be delivered. With good automation, most routine tasks (deploy, scale, monitor) are done efficiently, so the team can focus on improving functionality.
+
+_(Note: Many elements of this chapter rely on platform specifics (CloudHub vs on-prem). The fundamental principles are the same: automate and control as much as possible. MuleSoft is aware of this and provides tools, but it’s up to the team to utilize them and integrate into the broader devops process in the organization.)_
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/tuning-guide[Performance Tuning, window="_blank"]
+* https://www.mulesoft.com/integration/continuous-integration-continuous-delivery[DevOps and CI/CD, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/deploy-to-cloudhub[CloudHub Deployment, window="_blank"]
+* https://docs.mulesoft.com/monitoring/alerts[Anypoint Monitoring and Runtime Manager, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSd9BQi9oljGt6mRblNELOuy1G9Bg8FySa-UAfjfSLgy1ROQ_g/viewform?usp=publish-editor[Short quiz to verify knowledge, window="_blank"]
