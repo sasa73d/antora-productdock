@@ -1,0 +1,22 @@
+:translation-source: sr
+:page-lang: en
+=== *8. Testing Mule Applications*
+
+*Testing* is a critical part of any software development, and MuleSoft integrations are no exception. MuleSoft offers a dedicated testing framework called *MUnit*, which enables the creation of automated tests for Mule applications. In this chapter, we will explain the concepts of MUnit tests, best practices in writing tests, and how tests lay the foundation for integration reliability.
+
+[mermaid,munit-testing-overview,svg]
+....
+flowchart TD
+    A["Mule Application"]
+    B["MUnit Test"]
+    C["Mock External Systems"]
+    D["Execute Flow"]
+    E["Assertions"]
+    F["Test Result"]
+
+    B --> C
+    C --> D
+    D --> A
+    A --> E
+    E --> F
+....

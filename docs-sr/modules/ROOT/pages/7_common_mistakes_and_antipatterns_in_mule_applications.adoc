@@ -1,10 +1,6 @@
 :translation-source: sr
 :page-lang: sr
-=== *7. Česte greške i* 
-
-=== *anti-pattern*
-
-=== *-i u Mule aplikacijama*
+=== *7. Česte greške i anti-pattern-i u Mule aplikacijama*
 
 Kao i kod svake tehnologije, postoje uobičajene zamke u koje developeri (pogotovo početnici) mogu upasti prilikom razvoja MuleSoft integracija. Ovdje ćemo navesti najčešće greške i loše prakse, zajedno sa preporukama kako ih izbjeći. U velikoj mjeri, ovi anti-patterni su _suprotnosti_ onoga što smo ranije označili kao dobar dizajn.
 

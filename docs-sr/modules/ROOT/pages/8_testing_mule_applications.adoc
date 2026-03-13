@@ -1,0 +1,22 @@
+:translation-source: sr
+:page-lang: sr
+=== *8. Testiranje Mule aplikacija*
+
+*Testiranje* je kritičan dio svakog softverskog razvoja, pa tako i MuleSoft integracija. MuleSoft nudi poseban okvir za testiranje nazvan *MUnit*, koji omogućava pravljenje automatizovanih testova za Mule aplikacije. U ovom poglavlju objasnićemo koncepte MUnit testova, najbolje prakse u pisanju testova i kako testovi postavljaju osnov za pouzdanost integracija.
+
+[mermaid,munit-testing-overview,svg]
+....
+flowchart TD
+    A["Mule Application"]
+    B["MUnit Test"]
+    C["Mock External Systems"]
+    D["Execute Flow"]
+    E["Assertions"]
+    F["Test Result"]
+
+    B --> C
+    C --> D
+    D --> A
+    A --> E
+    E --> F
+....
