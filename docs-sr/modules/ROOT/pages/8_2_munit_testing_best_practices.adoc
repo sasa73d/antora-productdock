@@ -1,0 +1,70 @@
+:translation-source: sr
+:page-lang: sr
+==== *8.2 Pisanje dobrih testova – najbolje prakse*
+
+[mermaid,munit-testing-principles,svg]
+....
+flowchart TD
+    A["Given: Prepare Test Input"]
+    B["Mock External Systems"]
+    C["When: Run Mule Flow"]
+    D["Then: Assertions"]
+    E["Test Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+....
+
+*Jedna namjena po testu:* Svaki MUnit test treba da ima *jedan jasan scenario* koji provjerava. Na primjer, test “treba da uspješno kreira korisnika kad su svi parametri ispravni” je jedan scenario. Drugi test bi bio “treba da vrati grešku za duplikat korisnika”. *Nemojte trpati više logičkih provjera u jedan test* – bolje je imati više manjih testova. MUnit test se može fokusirati na jedan flow (ili subflow). Time je i kada test fail-uje jasno odmah šta je pošlo po zlu. _Zdrav MUnit test ima jednu jasnu namjenu i testira jedan scenarij konkretnog ponašanja._
+
+*Priprema ulaza i očekivanja:* Koristite *given/when/then* princip. U MUnit terminima: prvo pripremite potrebne ulaze – npr. ako testirate HTTP flow, možete kreirati dummy Mule Event sa sample payload-om i atributima (MUnit omogućava da “nakrimamo” Event vrijednosti). Takođe podesite bilo koje MUnit *mock* akcije: recimo, _mockiraj Database konektor da pri pozivu “insert” vrati određeni ID_. Zatim izvršite *when* – tj. pokrenete testirani flow ili subflow (MUnit ima munit:run-flow komponentu za to). Nakon izvršenja, radite *assertion* – provjerite _then_ ishode: da li je payload onakav kakav treba, jesu li varijable postavljene, da li je određeni konektor pozvan očekivanim brojem puta, itd. Na primjer: “Očekujem da je rezultat HTTP status 201 i payload sadrži field id.” Sve ovo MUnit pruža kroz svoje elemente (munit:assert-equals, munit:assert-that itd.).
+
+*Izolacija od eksternih zavisnosti:* Kao pravilo, testovi treba da budu *deterministični i brzi*. To znači da se ne oslanjaju na realne vanjske sisteme. U test okruženju, _uvijek koristite mocks za konektore_ kojima se inače pristupa bazama, fajlovima, HTTP servisima itd. Razlog je višestruk: 1) test ne zavisi od mreže ili dostupnosti resursa, 2) možete kontrolisati scenarije (simulate success, error, latency), 3) test je brži (ne čeka stvarnu obradu). MUnit ima _spy_ i _mock_ komponente za to. Npr. ++<++munit:connectors++>++ sekcija u testu definiše kada se npr. Database:Insert pojavi, zamijeni ga našom logikom (return utvrđenog rezultata).
+
+[mermaid,munit-mocking-example,svg]
+....
+flowchart TD
+    A["Tested Mule Flow"]
+    B["Database Connector"]
+    C["HTTP Service"]
+
+    D["Mock Database Response"]
+    E["Mock HTTP Response"]
+
+    A --> B
+    A --> C
+
+    B -. mocked by .-> D
+    C -. mocked by .-> E
+....
+
+*Pokriti različite scenarije (pozitivne i negativne):* Za kritične flow-ove, napišite testove za *sve ključne putanje*: tzv. “happy path” (sve ispravno ide), i “sad path” (greške i ivični slučajevi). Primjer: za API createUser, testirajte i scenario kada korisnik već postoji (očekivana greška), kada nedostaje obavezno polje (validacija odbije), itd. Testovi grešaka treba da provjere da flow zaista radi ono što očekujemo (npr. da hvata grešku i vraća 409 umjesto da puca). MUnit omogućava i simulaciju grešaka: možemo namjestiti mock da baci grešku umjesto da vrati normalan rezultat, kako bismo testirali kako naš flow reaguje.
+
+*Ne testirati MuleSoft platformu, već svoju logiku:* Ovo znači – ne trebate pisati test da provjeravate da li Mule radi nešto što je garantovano (npr. da li Transform Message zapravo transformiše JSON – to je Mule funkcionalnost, ne vaša logika). Fokusirajte se na testiranje _vaše implementacije_. Npr, testirajte da li nakon što stubujete vanjski servis i date određeni input, vaš flow postavlja ispravno output polja. Ne treba testirati da li HTTP Listener radi (to je Mule infrastruktura). Dakle, testovi služe da validiraju *poslovnu logiku i tokove*, ne osnovnu platformu (jer na nju se možemo pouzdati).
+
+*Jednostavnost i jasnoća test koda:* MUnit testovi su također Mule flow-ovi (nalaze se u posebnom folderu src/test/munit i izgledaju kao Mule XML sa munit: namespace). Trudite se da testni flow bude što čitkiji: da se iz imena koraka i assercija jasno vidi scenario. Dajte testu opisno ime (MUnit test suite i case idu obično po flow-u koji testiraju). Komentarišite unutar testa ako nešto kompleksnije radite. Jer testovi su korisni samo ako se mogu razumjeti i održavati.
+
+*Korišćenje MUnit Test Recorder:* Ovaj alat (dostupan u Studio-u) može biti od pomoći – on omogućava da “snimite” izvršavanje pravog flow-a sa realnim podacima i onda generiše test skeleton sa tim podacima kao stubovima. Ovo je super za brzo kreiranje testova, pogotovo integracionih. Ipak, generisane testove treba prekontrolisati i optimizovati (često snimi previše detalja, možda nepotrebno).
+
+*Primjer jednostavnog MUnit testa:* Recimo, za naš HelloMule flow, test bi izgledao:
+
+* _Given:_ pripremi dummy HTTP request Event sa praznim body. (Tu možemo koristiti već definisan MUnit plugin: munit:set-event da definišemo payload i attribs).
+* _When:_ munit:run-flow name=“hello-flow”.
+* _Then:_ stavimo munit:assert-payload-equals expected “Hello Mule”. Tako testiramo da li payload posle izvršenja flow-a jeste očekivani string. Možemo dodati i munit:assert that da provjerimo da je status code 200 (attributes.statusCode je 200).
+
+To bi pokrilo happy path. Za ovaj trivialni flow nema baš negativnog case-a (osim ako bismo testirali recimo grešku kad CloudHub nije dostupan, ali to je van scope-a ovdje).
+
+*Testabilnost i dizajn:* Važno je naglasiti – _pisanje testova često otkrije dizajnerske nedostatke._ Ako nađete da je veoma teško testirati određeni flow, to je znak da je možda previše kompleksan ili ima čvrste zavisnosti. MuleSoft najbolja praksa je da se aplikacije dizajniraju sa testiranjem na umu (testability). To znači primjenjivati principe iz poglavlja 6: male, modularne celine je lakše testirati. Ako ste sve spakovali u jedan flow, biće vam teže da izolujete dio i mock-ujete. Ako ste odvojili integracije putem pub-sub, onda možete testirati one dijelove nezavisno.
+
+Kada imamo dobru pokrivenost testovima, dobijamo sigurnost za sljedeći korak – *prelazak ka produkciji*. Testovi hvataju regresije i greške prije nego što ih osjete krajnji korisnici. U CI/CD, MUnit testovi se puštaju pri svakom build-u; ako nešto padne, zaustavlja se deploy. Tako se drži visoka pouzdanost.
+
+_(📎 *Dokumentacija:* MuleSoft dokument “Testing Mule Applications with MUnit” daje detaljne korake kako kreirati testove, uključujući korištenje MUnit test recorder-a, napisati asserts, generisati coverage report itd. Takođe, zvanični blogovi i tutorijali imaju praktične primjere. Preporučljivo štivo: “MUnit Overview” za pregled mogućnosti i “MUnit best practices” vodiči iz zajednice.)_
+
+* https://docs.mulesoft.com/munit/latest/[MUnit Framework, window="_blank"]
+* https://docs.mulesoft.com/munit/latest/mock-event-processor[Mocking i Stubbing u MUnitu, window="_blank"]
+* https://docs.mulesoft.com/munit/latest/assertion-event-processor[MUnit Assertions, window="_blank"]
+* https://docs.mulesoft.com/munit/latest/test-recorder[MUnit Test Recorder, window="_blank"]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeHG-nu_P9b8_8OjugJyNwv9BFk694QKo3K8d-nra7PXiPS5w/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

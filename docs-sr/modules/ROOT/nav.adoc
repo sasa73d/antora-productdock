@@ -16,3 +16,4 @@
 * xref:7_common_mistakes_and_antipatterns_in_mule_applications.adoc[7. Česte greške i anti-pattern-i u Mule aplikacijama]
 * xref:8_testing_mule_applications.adoc[8. Testiranje Mule aplikacija]
 ** xref:8_1_introduction_to_munit_mulesoft_testing_framework.adoc[8.1 Uvod u MUnit – MuleSoft testni okvir]
+** xref:8_2_munit_testing_best_practices.adoc[8.2 Pisanje dobrih testova – najbolje prakse]

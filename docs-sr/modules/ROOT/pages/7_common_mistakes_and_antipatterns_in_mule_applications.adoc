@@ -41,10 +41,10 @@ Dobra vijest je da MuleSoft ekosistem ima puno alata da vam pomogne izbjeći ove
 Ukratko, upoznavanje ovih anti-patterna je pola puta do uspjeha: sada znate šta da _ne radite_. U sljedećem dijelu ćemo preći na temu testiranja Mule aplikacija, gdje ćemo vidjeti kako se svi ovi principi odražavaju na mogućnost da temeljno testiramo i osiguramo kvalitet naše integracije prije nego što je pustimo u produkciju.
 
 
-* https://docs.mulesoft.com/mule-runtime/latest/secure-configuration-properties[Externalizacija konfiguracije]
-* https://docs.mulesoft.com/mule-runtime/latest/intro-error-handlers[Mule Error Handling Strategije]
-* https://docs.mulesoft.com/mule-runtime/latest/async-scope-reference[Asinkroni tok i de-coupling]
-* https://docs.mulesoft.com/mule-runtime/latest/logging-in-mule[Best Practice Logovanje]
+* https://docs.mulesoft.com/mule-runtime/latest/secure-configuration-properties[Externalizacija konfiguracije, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/intro-error-handlers[Mule Error Handling Strategije, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/async-scope-reference[Asinkroni tok i de-coupling, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/logging-in-mule[Best Practice Logovanje, window="_blank"]
 
 
 * link:https://docs.google.com/forms/d/e/1FAIpQLSeHG-nu_P9b8_8OjugJyNwv9BFk694QKo3K8d-nra7PXiPS5w/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
