@@ -1,0 +1,35 @@
+:translation-source: sr
+:page-lang: sr
+==== *5.3 Upravljanje izvršenjem i performanse (samoupravljajući runtime)*
+
+Mule 4 runtime uvodi koncept *samonamještajućeg izvršnog engine-a*. Kao što smo pomenuli, na nivou implementacije to znači da Mule runtime automatski kategorizira svaki procesorski element kao CPU-light, CPU-heavy ili IO-blocking, i shodno tome koristi odgovarajući thread pool za njega . Za developera, to se manifestuje kao vrlo rijetka potreba da ručno optimizuje niti. U Mule 3, nekad smo morali podešavati threading profile za flow, razdvajati processing strategy (npr. koristiti async scope) da dobijemo paralelizam. Mule 4 sve to radi automatski i bolje. Rezultat je da je Mule 4 runtime *reaktivan* – može skalirati upotrebu niti gore-dolje i izbjeći bottleneck-e gdje je to moguće.
+
+[mermaid,mule-runtime-thread-management,svg]
+....
+flowchart TD
+    A["HTTP Listener\n(I/O Thread)"]
+    B["Set Payload\n(CPU Light Thread)"]
+    C["HTTP Request\n(I/O Thread)"]
+    D["DataWeave Transformation\n(CPU Heavy Thread)"]
+    E["Response"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+....
+
+Primjer: HTTP Listener prihvata request na I/O niti, odmah prebacuje na CPU thread za obradu Set Payload (CPU-light), zatim recimo HTTP Request poziv spoljnog servisa radi na IO thread (jer čeka odgovor), pa kad dobije odgovor prelazi opet na CPU thread za DataWeave transformaciju (CPU-intensive). Sve to se dešava unutar jednog Event-a, ali različiti segmenti koriste različite thread pool-ove iza scene . Mule to radi *besprijekorno i nevidljivo* za programera. Prednost je iskorištavanje concurrency-ja: dok jedan Event čeka odgovor spoljnog servisa (blokiran I/O), CPU thread se oslobađa da obradi drugi Event. Time Mule aplikacija može paralelno da opslužuje veliki broj zahtjeva bez blokiranja thread-ova bespotrebno.
+
+Ovo automatsko upravljanje ne znači da ne treba razmišljati o performansama – i dalje je važno dizajnirati efikasne integracije (npr. ne raditi nepotrebne transformacije ogromnih payload-ova više puta, ne pozivati serijski 10 servisa ako se može paralelno i sl.). Ali dobar dio niskonivo optimizacija Mule preuzima na sebe. *Preporuka* je da se developeri fokusiraju na čitljiv dizajn, a da performanse prate kroz MuleSoft alat za monitoring i profilisanje. Ako se uoči usko grlo, onda eventualno posegnuti za tuniranjem. MuleSoft dokumentacija daje detaljan _Performance Tuning Guide_ kako prići optimizaciji – ali prva stavka tog vodiča je da treba sagledati aplikaciju i okruženje zajedno . Treba testirati aplikaciju pod opterećenjem i posmatrati metric-e (CPU, memorija, protok).
+
+Jedan bitan savjet je da iskoristimo *Anypoint Monitoring* i *Visualizer* alate u Anypoint Platformi kada je aplikacija deployovana. Oni mogu u realnom vremenu pokazati latenciju, throughput, korištenje memorije, i eventualno gdje dolazi do zastoja . Time možemo uočiti npr. da li neki konektor sporo odgovara, da li se gomilaju poruke u nekom dijelu itd. Ovi uvidi su zlata vrijedni za optimizaciju – čak i prije produkcije, možete u *pre-prod okruženju* simulirati opterećenje (postoji i *Performance Test* mode za CloudHub aplikacije koji služi za to) i onda pratiti ove metric-e.
+
+Ukratko, Mule runtime je dizajniran da bude *efikasan i skalabilan po defaultu*, ali pametan dizajn aplikacije i dalje čini razliku. Sada kada znamo kako Mule “razmišlja” (event-driven, reactive, auto-tuning), lakše ćemo razumjeti i naredne teme: kako dizajnirati dobar flow (poglavlje 6) i šta izbjegavati (poglavlje 7), jer mnoge najbolje prakse proizilaze upravo iz ovih unutrašnjih mehanizama.
+
+* https://docs.mulesoft.com/mule-runtime/latest/about-mule-event[Mule Event Detaljnije]
+* https://www.mulesoft.com/lp/whitepaper/api/reactive-programming[Reaktivni Runtime]
+* https://blogs.mulesoft.com/dev-guides/how-to-tutorials/thread-management-auto-tuning-mule-4/[Upravljanje Thread-ovima]
+* https://docs.mulesoft.com/mule-runtime/latest/about-flows[Flow, Subflow, Private Flow razlike]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeo3GRN9wU03y3ZTaQ0YyF33uid7TOWn0XXFR7oRCchO7QDrg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

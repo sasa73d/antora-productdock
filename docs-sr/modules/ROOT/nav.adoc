@@ -9,3 +9,4 @@
 * xref:5_how_mule_really_works_internal_mechanisms.adoc[5. Kako Mule stvarno radi (unutrašnji mehanizmi)]
 ** xref:5_1_mule_event_in_detail_message_flow_through_the_system.adoc[5.1 Mule Event detaljnije – tok poruke kroz sistem]
 ** xref:5_2_flow_subflow_and_private_flow_application_logic_structure.adoc[5.2 Flow, Subflow i Private Flow – struktura aplikacijske logike]
+** xref:5_3_execution_management_and_performance_self_tuning_runtime.adoc[5.3 Upravljanje izvršenjem i performanse (samoupravljajući runtime)]
