@@ -11,3 +11,4 @@
 ** xref:5_2_flow_subflow_and_private_flow_application_logic_structure.adoc[5.2 Flow, Subflow i Private Flow – struktura aplikacijske logike]
 ** xref:5_3_execution_management_and_performance_self_tuning_runtime.adoc[5.3 Upravljanje izvršenjem i performanse (samoupravljajući runtime)]
 * xref:6_real_mule_flow_design_best_practices.adoc[6. Kako izgleda pravi Mule flow (najbolje prakse dizajna)]
+** xref:6_1_anatomy_of_a_healthy_mule_flow.adoc[6.1 Anatomija zdravog Mule flow-a]

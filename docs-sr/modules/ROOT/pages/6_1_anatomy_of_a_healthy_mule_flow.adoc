@@ -1,0 +1,53 @@
+:translation-source: sr
+:page-lang: sr
+==== *6.1 Anatomija zdravog Mule flow-a*
+
+Bez obzira na specifičnosti poslovne logike, iskustvo pokazuje da većina dobro dizajniranih flow-ova prati *konceptualni obrazac od četiri koraka* koji smo već načeli :
+
+[mermaid,healthy-mule-flow-structure,svg]
+....
+flowchart TD
+    A["Inbound Connector / Entry Point"]
+    B["Validation and Preparation"]
+    C["Core Processing and Integration"]
+    D["Response Preparation / Output"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+[arabic]
+. *Ulaz (Entry Point):* Ovo je početak flow-a – inbound konektor koji prima događaj. U web API scenariju to je HTTP Listener; u integraciji sistem-sistem to može biti JMS Queue Listener, Scheduler, File Listener itd. Ovdje Mule kreira Event i započinje obradu. Ulaz treba jasno da definiše _kontrakt_ onoga što flow očekuje: npr. HTTP Listener treba da ima jasan path (možda sa parametrima), očekivani HTTP metod; ako je REST API, obično već imamo definisan API kontrakt (RAML/ OAS) koji Studio mapira na Listener. Bitno je da *ime flow-a* i ime konektora odražavaju šta radi – npr. flow nazvan _create-user-api-flow_ sa Listener path /api/users POST jasno implicira da pravi novog korisnika. Dobra praksa je uključiti u naziv flow-a i tip event source-a ako ima više (npr. _user-sync-scheduler-flow_ vs _user-api-flow_ ako imamo i periodičnu sinkronizaciju i API u jednoj aplikaciji).
+
+. *Priprema i osnovna validacija:* Odmah nakon ulaza dolaze procesori koji se brinu o provjeri preduvjeta i podešavanju “scene” za glavnu logiku. Ovo može uključivati: autentikaciju/autorizaciju (provjeru tokena ili API ključa – ako nije ispravan, prekida se flow i vraća greška 401/403), validaciju formata ili sadržaja ulaznog payload-a (npr. da li JSON schema odgovara očekivanom, da li su sva obavezna polja tu; ako nije, prekid sa 400 Bad Request), inicijalizaciju nekih varijabli (npr. postavljanje traceId za logovanje kroz varijablu ako takav koncept koristimo), i sl. *Cilj ove faze* je da se _brzo otkriju eventualni problemi_ i da se postave osnove za dalje. Ako nešto nije u redu, bolje je ovdje zaustaviti flow nego pustiti da ode do pola pa fail-uje dublje. U zdravom flow-u, ova sekcija je jasno izdvojena – npr. možemo je grupisati unutar _Validation_ subflow-a da logika validacije bude odvojena od ostatka.
+
+. *Obrada i transformacija (glavna logika):* Ovo je *srce flow-a* – sekvenca koraka koja implementira poslovnu svrhu integracije. Tu spadaju pozivi ka spoljnim sistemima (konektori), poslovna pravila, prikupljanje i obrada podataka. Ako radimo API koji upisuje novog korisnika, ovdje bismo npr: pozvali Database konektor da upiše zapis u bazu, zatim možda pozvali neki drugi servis (npr. servis za slanje dobrodošlog email-a ili kreiranje zapisa na drugom sistemu), potom agregirali rezultate, transformisali output strukturu putem DataWeave-a u JSON koji API treba vratiti. Ova faza često uključuje *kombinovanje više poziva* i korišćenje varijabli da se privremeno skladište međurezultati. Npr. rezultat prvog poziva (ID novog korisnika) smjestimo u varijablu userId, pa je koristimo u drugom pozivu. *Struktura ove sekcije* treba da prati logičan tok: moguće je linearno (jedan za drugim), a moguće i paralelno (koristeći _Parallel For Each_ ili Async scope ako treba pozvati više nezavisnih stvari u paraleli). Kroz sve ove korake, na kraju želimo doći do finalnih podataka koji idu kao izlaz. +
+ +
+Važno: _obrada_ može biti razdijeljena u više manjih cjelina putem subflow-ova, upravo da bi se olakšalo razumijevanje. Na primjer, možemo imati subflow *“CallExternalSystems”* koji unutra poziva 3 sistema i spaja rezultate, dok glavni flow samo poziva taj subflow i zatim ide dalje. Ovakva modulacija poboljšava čitljivost jer glavni tok “sakrije” detalje sporednih operacija koje nisu kritične za razumijevanje osnovne sekvence. Naravno, sve zavisi od kompleksnosti – pravilo je da jedan flow treba da radi _ono što mu ime kaže_ i da to radi jasno. Ako previše toga radi, vjerovatno ga treba podijeliti.
+
+. *Izlaz/odgovor (kraj flow-a):* Na kraju, pripremamo rezultat za slanje. U slučaju API-ja, to znači formiranje HTTP odgovora: postavljanje payload-a (ako već nije postavljen transformacijom), eventualno podešavanje HTTP statusnog koda i zaglavlja. U Mule 4, HTTP Listener automatski vraća 200 OK ako nije drugačije specificirano i uzima trenutni payload kao tijelo odgovora – zato je često dovoljno samo da payload bude u željenom obliku. Ali, ako treba vratiti npr. 201 Created, koristimo komponentu *Set Payload* (ili Transform) za tijelo, a *Set Property (StatusCode)* ili direktno u Listener konfiguraciji možemo mapirati. Takođe, ako se radi o integraciji bez direktnog odgovora, ovdje može biti završni log (“uspješno obrađen korisnik ID X”) ili možda slanje notifikacije nekome. Poenta je da zaokružimo proces i ostavimo Event u stanju za izlaz. +
+ +
+Još jedan veoma bitan aspekt završetka flow-a je *error handling*: šta ako je neki korak u sekciji 3 bacio grešku? Zdrav flow ima definisane _On Error_ scope-ove koji hvataju greške (ako su predviđene) i vraćaju smislen odgovor. Npr. ako baza javi duplicate key (korisnik postoji), možemo uhvatiti tu grešku i vratiti 409 Conflict klijentu umjesto generičke 500 interni error. Najbolja praksa je da se error handling sekcije postave obično *na nivou flow-a* (Studio to prikazuje ispod glavnog toka kao zasebne trake “On Error Continue/Propagate”). U poglavlju o greškama (7) detaljnije ćemo, ali ovdje napominjemo: _dio “izlaza” zdravog flow-a je i definiranje šta se dešava sa greškama_. Bez toga, Mule će po defaultu propagate-ovati grešku nazad (npr. HTTP 500 ako nije uhvaćena).
+
+[mermaid,flow-error-handling-structure,svg]
+....
+flowchart TD
+    A["Inbound Request"]
+    B["Validation"]
+    C["Business Logic"]
+    D["Success Response"]
+
+    E["Error Handler"]
+    F["Mapped Error Response"]
+
+    A --> B
+    B --> C
+    C --> D
+
+    B -. error .-> E
+    C -. error .-> E
+    E --> F
+....
+
+Da sumiramo, *zdrav Mule flow* odlikuje: jasan ulaz, razdvojena sekcija validacije, glavni dio jasno sekvencionisan (ili podijeljen u manje cjeline, umjesto haotičnog spajanja svega), i definisan način završetka (bilo normalnog odgovora bilo greške). Takav flow ima *predvidiv tok obrade, lak za čitanje i debugovanje, i moguće ga je proširivati bez velikih promjena* . Drugim riječima, dobar dizajn sprječava da se oslanjamo na “trikove” i komplikacije – sve teče logično.
