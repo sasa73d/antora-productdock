@@ -7,3 +7,4 @@
 * xref:4_dataweave_in_mule4.adoc[4. DataWeave in Mule 4]
 ** xref:4_1_what_is_dataweave_and_why_it_exists.adoc[4.1 What is DataWeave and Why It Exists]
 ** xref:4_2_dataweave_in_practice_thinking_and_tools.adoc[4.2 DataWeave in Practice – Concepts and Tools]
+* xref:5_how_mule_really_works_internal_mechanisms.adoc[5. How Mule Really Works (Internal Mechanisms)]

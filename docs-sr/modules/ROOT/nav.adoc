@@ -6,3 +6,4 @@
 * xref:4_dataweave_in_mule4.adoc[4. DataWeave u Mule 4]
 ** xref:4_1_what_is_dataweave_and_why_it_exists.adoc[4.1 Šta je DataWeave i zašto postoji]
 ** xref:4_2_dataweave_in_practice_thinking_and_tools.adoc[4.2 DataWeave u praksi – razmišljanje i alati]
+* xref:5_how_mule_really_works_internal_mechanisms.adoc[5. Kako Mule stvarno radi (unutrašnji mehanizmi)]

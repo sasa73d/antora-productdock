@@ -1,0 +1,17 @@
+:translation-source: sr
+:page-lang: sr
+=== *5. Kako Mule stvarno radi (unutrašnji mehanizmi)*
+
+Sada zaranjamo dublje “ispod haube” Mule runtime-a da bismo razumjeli *kako Mule izvršava aplikacije*. Do sada smo vidjeli šta radimo na nivou konfiguracije (flow-ovi, event, transformacije), a sada ćemo pokriti kako Mule upravlja izvršenjem, threading modelom, i šta se dešava sa porukom tokom prolaska kroz sistem. Ovaj dio je važan za *razumijevanje performansi i ponašanja* Mule aplikacija – znanje koje pravila “igru” u pozadini pomoći će vam da donosite ispravne odluke pri dizajnu.
+
+[mermaid,mule-runtime-internal-flow,svg]
+....
+flowchart LR
+    Source["Event Source"] --> Event["Mule Event Created"]
+    Event --> Flow["Mule Flow Processing"]
+    Flow --> Processor1["Processor"]
+    Processor1 --> Processor2["Processor"]
+    Processor2 --> Transform["DataWeave Transformation"]
+    Transform --> Next["Next Component"]
+    Next --> Response["Response / Outbound System"]
+....
