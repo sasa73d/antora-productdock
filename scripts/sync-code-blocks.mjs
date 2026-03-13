@@ -124,7 +124,13 @@ function collectProtectedBlockRanges(lines) {
     ) {
       const closingIndex = findClosingDelimiter(lines, i + 1, nextLine);
       if (closingIndex !== -1) {
-        ranges.push({ start: i, end: closingIndex });
+        ranges.push({
+          start: i,
+          end: closingIndex,
+          type: nextLine.trim() === '....'
+            ? 'literal'
+            : (isBacktickFence(nextLine) ? 'fenced' : 'delimited'),
+        });
         i = closingIndex + 1;
         continue;
       }
@@ -133,7 +139,13 @@ function collectProtectedBlockRanges(lines) {
     if (isSupportedDelimiter(currentLine)) {
       const closingIndex = findClosingDelimiter(lines, i, currentLine);
       if (closingIndex !== -1) {
-        ranges.push({ start: i, end: closingIndex });
+        ranges.push({
+          start: i,
+          end: closingIndex,
+          type: currentLine.trim() === '....'
+            ? 'literal'
+            : (isBacktickFence(currentLine) ? 'fenced' : 'delimited'),
+        });
         i = closingIndex + 1;
         continue;
       }
@@ -154,23 +166,40 @@ function syncCodeBlocks(sourceContent, targetContent) {
 
   const rangeCount = Math.min(sourceRanges.length, targetRanges.length);
 
+  // We mutate targetLines in place, so we need to track shifting indexes
+  let lineOffset = 0;
+
   for (let r = 0; r < rangeCount; r++) {
     const sourceRange = sourceRanges[r];
-    const targetRange = targetRanges[r];
+    const originalTargetRange = targetRanges[r];
+
+    const adjustedTargetStart = originalTargetRange.start + lineOffset;
+    const adjustedTargetEnd = originalTargetRange.end + lineOffset;
 
     const sourceBlockLines = sourceLines.slice(sourceRange.start, sourceRange.end + 1);
-    const targetBlockLength = targetRange.end - targetRange.start + 1;
+    const targetBlockLength = adjustedTargetEnd - adjustedTargetStart + 1;
 
-    if (sourceBlockLines.length !== targetBlockLength) {
+    if (sourceRange.type !== originalTargetRange.type) {
       console.warn(
-        `⚠️  Skipping block ${r + 1}: source block has ${sourceBlockLines.length} line(s), target block has ${targetBlockLength} line(s).`
+        `⚠️  Skipping block ${r + 1}: source block type is "${sourceRange.type}", target block type is "${originalTargetRange.type}".`
       );
       continue;
     }
 
-    for (let offset = 0; offset < sourceBlockLines.length; offset++) {
-      targetLines[targetRange.start + offset] = sourceBlockLines[offset];
+    if (sourceBlockLines.length !== targetBlockLength) {
+      console.log(
+        `ℹ️  Replacing block ${r + 1} with different line count: source=${sourceBlockLines.length}, target=${targetBlockLength}.`
+      );
     }
+
+    // Replace the entire target block with the source block, even if lengths differ
+    targetLines.splice(
+      adjustedTargetStart,
+      targetBlockLength,
+      ...sourceBlockLines
+    );
+
+    lineOffset += sourceBlockLines.length - targetBlockLength;
   }
 
   if (sourceRanges.length !== targetRanges.length) {

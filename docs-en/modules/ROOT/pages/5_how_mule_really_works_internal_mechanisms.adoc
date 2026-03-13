@@ -1,13 +1,13 @@
 :translation-source: sr
 :page-lang: en
-=== *5. How Mule Really Works (Internal Mechanics)*
+=== *5. How Mule Really Works (Internal Mechanisms)*
 
-Now we dive deeper “under the hood” of the Mule runtime to understand *how Mule executes applications*. So far we have seen what we do at the configuration level (flows, events, transformations), and now we will cover how Mule manages execution, the threading model, and what happens to the message as it passes through the system. This part is important for *understanding the performance and behavior* of Mule applications – the knowledge of what “rules the game” in the background will help you make the right decisions in design.
+Now we dive deeper “under the hood” of the Mule runtime to understand *how Mule executes applications*. So far, we have seen what we do at the configuration level (flows, events, transformations), and now we will cover how Mule manages execution, the threading model, and what happens to the message as it passes through the system. This part is important for *understanding the performance and behavior* of Mule applications – knowledge of the rules “behind the scenes” will help you make the right decisions in design.
 
 [mermaid,mule-runtime-internal-flow,svg]
 ....
 flowchart LR
-    Source["Event Source"] --> Event["Mule Event Created"]
+    Source["Event Source"] --> Event["Mule.  Event Created"]
     Event --> Flow["Mule Flow Processing"]
     Flow --> Processor1["Processor"]
     Processor1 --> Processor2["Processor"]
