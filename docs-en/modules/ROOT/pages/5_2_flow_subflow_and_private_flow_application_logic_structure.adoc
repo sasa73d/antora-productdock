@@ -1,0 +1,28 @@
+:translation-source: sr
+:page-lang: en
+==== *5.2 Flow, Subflow and Private Flow – structure of application logic*
+
+Mule allows organizing application logic into multiple *flows* within a single application. We have already worked with “regular” flows that have an inbound connector. Besides those, there are *private flows* and *subflows* that serve to modularize logic within the application:
+
+[mermaid,flow-subflow-private-flow-structure,svg]
+....
+flowchart TD
+    A["Main Flow\n(with inbound connector)"]
+    B["Subflow\n(no inbound connector)"]
+    C["Private Flow\n(no inbound connector)"]
+
+    A --> B
+    A --> C
+....
+
+* *Flow (main or “inbound” flow):* Every flow that has an *inbound connector* at the start (HTTP Listener, Scheduler, JMS Listener, etc.) is a main inbound flow. These flows represent “entry points” to our application – each of them can be a separate API endpoint, a process triggered by a schedule (Scheduler), and so on. These flows _can_ return a response (if the protocol supports it, e.g., HTTP) or only perform operations.
+* *Subflow:* A subflow is defined with a special ++<++sub-flow++>++ element (in Studio it is added differently than a regular flow). A subflow *does not have its own inbound connector* nor can it start independently – it is invoked from another flow, usually via the *Flow Reference* component. When a subflow is called, it executes *synchronously* within the context of the parent flow. That means it shares the same Mule Event (payload and context) and even the same thread (it is not a new asynchronous call but a continuation of execution). A subflow is practically a way to extract a portion of logic you want to reuse or just to make the main flow more readable. For example, we could have a subflow that performs validation and call it from multiple different flows that need the same set of checks. Or a subflow that sends data to multiple systems – saving duplication of that sequence of steps in the main flow.
+* *Private Flow:* This is a term for a flow that *does not have an inbound connector*, but is still defined as ++<++flow++>++ (not as a sub-flow). These flows also do not start by themselves, but via Flow Reference or via internal communication (VM connector, for advanced scenarios). The difference compared to a subflow is mainly that a private flow is treated as a separate execution unit – e.g., errors within it can be handled independently, and by default a private flow will run asynchronously if invoked via a VM connector. But if called via Flow Reference, the difference between a private flow and a subflow is subtle (in Mule 4 they are more similar than in Mule 3). In practice, many developers use subflows for fully _inline_ calls (synchronous), and private flows for logic accessed via _Flow Reference_ from multiple places or that they want to optionally call asynchronously.
+
+In the context of what we learned about the Mule Event, it is important: *when we invoke a subflow or private flow reference, the Event is passed into that flow* (or subflow), and all changes made there reflect back when we return. The Event is not copied (except in special asynchronous scenarios).
+
+Why is this important? *Logic organization*. Instead of one huge flow (monolithic), it is better to split into smaller units. For example, one inbound flow can validate a request, then call a subflow “DataProcessing” that performs the main logic, then another subflow “ResponsePreparation” to format the response. This way we get modularity. (In chapter 6 we will see what a “healthy” Mule flow looks like, and this kind of structure is applied there.)
+
+Technically, the differences developers notice are minimal: a subflow is easier to identify since it is specially marked in XML and always synchronous, while a private flow can have its own error handling sections. For a beginner, it is enough to remember – *don’t cram all logic into one flow*. Mule enables you to *separate integration into reasonable parts*, which increases reuse and easier testing. (Example: a module for sending email notifications can be a subflow called from various places whenever an email needs to be sent; we have one implementation, and we use it in multiple points.)
+
+_(📎 *Documentation:* More details on the differences between flow types: the official “Flows and Subflows” documentation explains how Mule executes logic depending on whether it is a main flow or a subflow.)_

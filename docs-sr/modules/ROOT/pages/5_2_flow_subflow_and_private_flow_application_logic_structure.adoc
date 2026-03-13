@@ -1,0 +1,28 @@
+:translation-source: sr
+:page-lang: sr
+==== *5.2 Flow, Subflow i Private Flow – struktura aplikacijske logike*
+
+Mule omogućava da aplikacionu logiku organizujemo u više *flow-ova* unutar jedne aplikacije. Već smo radili sa “običnim” flow-ovima koji imaju ulazni konektor. Pored njih, postoje i *privatni flow-ovi* i *subflow-ovi* koji služe za modularizaciju logike unutar aplikacije:
+
+[mermaid,flow-subflow-private-flow-structure,svg]
+....
+flowchart TD
+    A["Main Flow\n(with inbound connector)"]
+    B["Subflow\n(no inbound connector)"]
+    C["Private Flow\n(no inbound connector)"]
+
+    A --> B
+    A --> C
+....
+
+* *Flow (glavni ili “ulazni” flow):* Svaki flow koji ima *inbound konektor* na početku (HTTP Listener, Scheduler, JMS Listener, itd.) je glavni ulazni tok. Ti flow-ovi predstavljaju “ulaze” u našu aplikaciju – svaki od njih može biti zaseban API endpoint, proces koji se okida rasporedom (Scheduler), ili sl. Ovi flow-ovi _mogu_ vraćati odgovor (ako protokol to podržava, npr. HTTP) ili samo obavljati operacije.
+* *Subflow:* Subflow je definisan posebnim ++<++sub-flow++>++ elementom (u Studio-u se dodaje drugačije od regularnog flow-a). Subflow *nema svoj inbound konektor* niti može samostalno startovati – on se poziva iz drugog flow-a, obično putem komponente *Flow Reference*. Kada se subflow pozove, on se izvršava *sinhrono* u kontekstu roditeljskog flow-a. To znači da dijeli isti Mule Event (payload i kontekst) i čak i isti thread (nije novi asinhroni poziv, već nastavak izvršenja). Subflow je praktično način da izdvojimo dio logike koji želimo da ponovo koristimo ili samo da glavni flow bude pregledniji. Na primjer, mogli bismo imati subflow koji radi validaciju pa ga pozvati iz više različitih flow-ova koji trebaju isti skup provjera. Ili subflow koji šalje podatke u više sistema – glavnom flow-u time uštedimo dupliciranje tog niza koraka.
+* *Private Flow:* Ovo je termin za flow koji *nema inbound konektor*, ali se ipak definiše kao ++<++flow++>++ (ne kao sub-flow). Ti flow-ovi se takođe ne pokreću sami, već preko Flow Reference ili preko interne komunikacije (VM konektor, za naprednije scenarije). Razlika u odnosu na subflow je uglavnom u tome što se private flow tretira kao zasebna cjelina izvršenja – npr. greške u njemu mogu biti obrađene nezavisno, i po defaultu private flow će se izvršavati asinhrono ako se poziva preko VM konektora. Ali ako ga pozovemo preko Flow Reference, razlika između private flow-a i subflow-a je suptilna (u Mule 4 su sličniji nego u Mule 3). U praksi, mnogi developeri koriste subflow za potpuno _inline_ pozive (sinhrone), a private flow-ove za logiku kojoj pristupaju putem _Flow Reference_ iz više mjesta, ili koju žele eventualno pozivati asinhrono.
+
+U kontekstu onoga što smo naučili o Mule Event-u, bitno je: *kada pozovemo subflow ili private flow reference, Event se prenosi u taj flow* (ili subflow), i sve izmjene koje se tamo dese reflektuju se nazad kad se vratimo. Nema kopiranja Event-a (osim u posebnim asinhronim scenarijima).
+
+Zašto je ovo važno? *Organizacija logike*. Umjesto jednog ogromnog flow-a (monolitnog), bolje je podijeliti na manje cjeline. Na primjer, jedan ulazni flow može validirati zahtjev, zatim pozvati subflow “ObradaPodataka” koji obavlja glavnu logiku, pa onda drugi subflow “PripremaOdg” za formatiranje odgovora. Tako dobijamo modularnost. (U poglavlju 6 ćemo vidjeti kako izgleda “zdrav” Mule flow i tu se primjenjuje upravo ovakva struktura.)
+
+Tehnički, razlike koje developer osjeti su minimalne: subflow je lakše prepoznati jer je označen posebno u XML-u i uvijek synchronous, dok private flow može imati svoje error handling sekcije. Za početnika, dovoljno je zapamtiti – *ne trpajte svu logiku u jedan flow*. Mule omogućava da *razdvojite integraciju u razumne dijelove*, što povećava ponovnu upotrebu i lakše testiranje. (Primjer: modul za slanje email notifikacije može biti subflow koji se poziva iz raznih mjesta kad god treba poslati email; imamo jednu implementaciju, a koristimo je na više tačaka.)
+
+_(📎 *Dokumentacija:* Više detalja o razlikama između tipova flow-ova: zvanična dokumentacija “Flows and Subflows” objašnjava kako Mule izvršava logiku u zavisnosti od toga da li je u pitanju glavni flow ili subflow .)_
