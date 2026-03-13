@@ -3,3 +3,4 @@
 * xref:1_mule_overview.adoc[1. General overview of Mule]
 * xref:2_getting_started_with_mule4.adoc[2. How to Start with Mule 4 (Practical Focus)]
 * xref:3_first_mule4_project.adoc[3. First Mule 4 Project – Conceptual Overview]
+** xref:3_1_anypoint_studio_environment_overview.adoc[3.1 Getting to Know the Anypoint Studio Environment]
