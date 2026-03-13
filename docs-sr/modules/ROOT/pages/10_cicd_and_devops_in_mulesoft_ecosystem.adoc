@@ -1,0 +1,26 @@
+:translation-source: sr
+:page-lang: sr
+=== *10. CI/CD i DevOps u MuleSoft ekosistemu*
+
+U prethodnom poglavlju dotakli smo se CI/CD praksi kao dijela puta do produkcije. Sada ćemo to zaokružiti i produbiti, stavljajući fokus na širu sliku *DevOps kulture i alata* u MuleSoft ekosistemu. Ovo poglavlje posmatrajte kao kombinaciju tehničkih koraka i filozofije rada koja osigurava da MuleSoft integracije mogu biti isporučivane i održavane na skalabilan, pouzdan način, uz pomoć automatizacije.
+
+[mermaid,mulesoft-devops-ecosystem,svg]
+....
+flowchart TD
+    A["Developer Workflow"]
+    B["Source Control (Git)"]
+    C["CI Pipeline"]
+    D["Automated Tests (MUnit)"]
+    E["Build Artifact"]
+    F["Deployment Pipeline"]
+    G["Runtime Platform (CloudHub / RTF / On-Prem)"]
+    H["Monitoring and Operations"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+....
