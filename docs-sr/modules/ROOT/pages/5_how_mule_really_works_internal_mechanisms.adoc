@@ -6,12 +6,21 @@ Sada zaranjamo dublje “ispod haube” Mule runtime-a da bismo razumjeli *kako 
 
 [mermaid,mule-runtime-internal-flow,svg]
 ....
-flowchart LR
-    Source["Event Source"] --> Event["Mule.  Event Created"]
-    Event --> Flow["Mule Flow Processing"]
-    Flow --> Processor1["Processor"]
-    Processor1 --> Processor2["Processor"]
-    Processor2 --> Transform["DataWeave Transformation"]
-    Transform --> Next["Next Component"]
-    Next --> Response["Response / Outbound System"]
+flowchart TD
+    Source["Event Source"]
+    Event["Mule Event Created"]
+    Flow["Mule Flow Processing"]
+    Processor1["Processor"]
+    Processor2["Processor"]
+    Transform["DataWeave Transformation"]
+    Next["Next Component"]
+    Response["Response / Outbound System"]
+
+    Source --> Event
+    Event --> Flow
+    Flow --> Processor1
+    Processor1 --> Processor2
+    Processor2 --> Transform
+    Transform --> Next
+    Next --> Response
 ....
