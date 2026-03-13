@@ -11,8 +11,11 @@
 //
 // It copies block contents for:
 // - [source,...] + ---- ... ----
+// - [listing,...] + ---- ... ----
+// - [literal,...] + .... ... ....
+// - [mermaid,...] + .... ... ....
 // - bare ---- ... ---- blocks
-// - .... ... .... literal blocks
+// - bare .... ... .... literal blocks
 // - ``` ... ``` fenced blocks
 
 import fs from 'fs/promises';
@@ -76,7 +79,7 @@ function detectDirection(sourcePath, targetPath, explicitDirection) {
 
 function isListingBlockAttributeLine(line) {
   const trimmed = line.trim();
-  return /^\[(source|listing|literal)(%[^\]]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
+  return /^\[(source|listing|literal|mermaid)(%[^\]]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
 }
 
 function isBacktickFence(line) {
@@ -127,9 +130,12 @@ function collectProtectedBlockRanges(lines) {
         ranges.push({
           start: i,
           end: closingIndex,
-          type: nextLine.trim() === '....'
-            ? 'literal'
-            : (isBacktickFence(nextLine) ? 'fenced' : 'delimited'),
+          type:
+            nextLine.trim() === '....'
+              ? 'literal'
+              : isBacktickFence(nextLine)
+                ? 'fenced'
+                : 'delimited',
         });
         i = closingIndex + 1;
         continue;
@@ -142,9 +148,12 @@ function collectProtectedBlockRanges(lines) {
         ranges.push({
           start: i,
           end: closingIndex,
-          type: currentLine.trim() === '....'
-            ? 'literal'
-            : (isBacktickFence(currentLine) ? 'fenced' : 'delimited'),
+          type:
+            currentLine.trim() === '....'
+              ? 'literal'
+              : isBacktickFence(currentLine)
+                ? 'fenced'
+                : 'delimited',
         });
         i = closingIndex + 1;
         continue;
@@ -166,7 +175,6 @@ function syncCodeBlocks(sourceContent, targetContent) {
 
   const rangeCount = Math.min(sourceRanges.length, targetRanges.length);
 
-  // We mutate targetLines in place, so we need to track shifting indexes
   let lineOffset = 0;
 
   for (let r = 0; r < rangeCount; r++) {
@@ -192,7 +200,6 @@ function syncCodeBlocks(sourceContent, targetContent) {
       );
     }
 
-    // Replace the entire target block with the source block, even if lengths differ
     targetLines.splice(
       adjustedTargetStart,
       targetBlockLength,

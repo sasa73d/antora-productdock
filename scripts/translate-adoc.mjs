@@ -162,6 +162,23 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function createSpinner(message) {
+  const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+  let i = 0;
+
+  process.stdout.write(`${frames[0]} ${message}`);
+
+  const timer = setInterval(() => {
+    const frame = frames[i = (i + 1) % frames.length];
+    process.stdout.write(`\r${frame} ${message}`);
+  }, 80);
+
+  return () => {
+    clearInterval(timer);
+    process.stdout.write(`\r✔ ${message}\n`);
+  };
+}
+
 function extractAttrValue(text, attrName) {
   const re = new RegExp(`^:${attrName}:\\s*(.+)\\s*$`, 'im');
   const m = text.match(re);
@@ -593,11 +610,15 @@ async function translateAdocContent(adocText, isSafeMode, direction, translation
   const { protectedText, protectedLines } = protectCodeAndLiteralBlocks(adocText);
   const model = pickTranslateModel();
 
+  createSpinner(`Translating ${path.basename(inputPath)}...`);
+
   const response = await client.responses.create({
     model,
     instructions,
     input: protectedText,
   });
+
+  stopSpinner();
 
   try {
     const usage = extractUsageFromOpenAIResponse(response);
