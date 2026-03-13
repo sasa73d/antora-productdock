@@ -1,0 +1,49 @@
+:translation-source: sr
+:page-lang: en
+==== *9.1 Application Readiness for Production*
+
+Before deploying to production, the application should go through several steps and checks:
+
+[mermaid,production-readiness-checks,svg]
+....
+flowchart TD
+    A["Automated Tests Pass"]
+    B["Code Review"]
+    C["Performance / Load Testing"]
+    D["Security and Configuration Check"]
+    E["Environment Configuration"]
+    F["Ready for Production Deployment"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *All automated tests green:* As we mentioned, tests are the foundation of stability. On the _path to production_, the application must have passing MUnit tests for the main functionalities. If there is a pipeline (more on this soon), it will not allow deployment if tests have not passed. Tests now become the foundation not only for development but also for production stability – catching regressions and enabling refactoring without fear.
+
+* *Code review and best practice check:* It is desirable for a more experienced colleague or team (or an automatic linter) to review the code before production. The goal is to spot potential anti-patterns (from chapter 7) or security vulnerabilities. Many teams develop an internal *“MuleSoft code checklist”*: for example, check that there are no hardcoded passwords, all connectors have timeouts, error handlers are present, log levels are correct, etc. There are also tools (e.g., SonarQube with Mule plugin, or Integral Zone’s Code Analyzer) that can automate this.
+
+* *Performance and load test:* Before production, it is good to conduct *performance testing* in a staging environment that is as close to production as possible. Goal: confirm that the application can handle the expected load (e.g., X requests per second) with acceptable resource usage. MuleSoft recommends defining _representative workloads_ and using tools (JMeter, Locust, etc.) to simulate scenarios. This reveals potential bottlenecks in advance. If issues are detected, tuning parameters can be adjusted (number of workers on CloudHub, size of threadpool if on-prem, increase memory, or optimize code itself: perhaps introduce streaming where buffering occurred, etc.). Such testing and tuning fall under *Performance Tuning Guide* activities.
+
+[mermaid,performance-testing-flow,svg]
+....
+flowchart TD
+    A["Staging Environment"]
+    B["Load Testing Tool (JMeter / Locust)"]
+    C["Simulated User Requests"]
+    D["Monitor CPU / Memory / Latency"]
+    E["Identify Bottlenecks"]
+    F["Tune Application or Resources"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *Security and configuration:* Ensure that all passwords and secret parameters are set through Secure Properties (and that encryption keys are properly managed). Check that CORS is correctly configured (for APIs), authentication policies (if the API goes through API Manager, ensure policies are applied, e.g., Client ID Enforcement or OAuth 2.0 if needed). Also, review that the application does not leak too much information in logs or errors (e.g., stacktrace to client – this was handled via error handling). In short, perform a *security review* of the application: at minimum, have defined pre-auth filters (if it is a public API), sanitize output (to prevent internal info leaks), and remove unnecessary debug functionalities.
+
+* *Preparing configurations for various environments:* In MuleSoft, we typically have _dev, test, prod_ environments (either on CloudHub or on-prem). Set in properties files appropriate values for each env (e.g., dev uses dev database, test uses staging database, prod uses production database). Verify that switching environments works smoothly – Mule Maven plugin profiles are often used here to generate different configurations for each environment. If the application is for CloudHub, use the *Secure Properties Tool* to encrypt sensitive values and enter them as Secure Properties. Also, if using API Manager, ensure that the API instance is created for the prod environment and linked with the deployment (because policies may differ dev vs prod).

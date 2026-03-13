@@ -1,0 +1,49 @@
+:translation-source: sr
+:page-lang: sr
+==== *9.1 Spremnost aplikacije za produkciju*
+
+Prije deploy-a u produkciju, aplikacija bi trebalo da prođe kroz nekoliko koraka i provjera:
+
+[mermaid,production-readiness-checks,svg]
+....
+flowchart TD
+    A["Automated Tests Pass"]
+    B["Code Review"]
+    C["Performance / Load Testing"]
+    D["Security and Configuration Check"]
+    E["Environment Configuration"]
+    F["Ready for Production Deployment"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *Sve automatizovane testove zelene:* Kao što smo naveli, testovi su osnova stabilnosti. Na _putu ka produkciji_, aplikacija mora imati prolazeće MUnit testove za glavne funkcionalnosti. Ako postoji pipeline (o čemu uskoro), on neće ni dozvoliti deploy ako testovi nisu prošli. Testovi sada postaju osnov ne samo za razvoj, već i za stabilnost u produkciji – hvataju regresije i omogućavaju refaktor bez straha .
+
+* *Code review i best practice check:* Poželjno je da iskusniji kolega ili tim (ili automatski linter) pregleda kod prije produkcije. Cilj je da se uoče eventualni anti-patterni (iz poglavlja 7) ili sigurnosni propusti. Mnogi timovi razviju internu *“MuleSoft code checklist”*: npr. provjeri da nema hardcodovanih lozinki, da su svi konektori sa timeoutima, da su error handleri prisutni, da su log leveli ispravni, itd. Postoje i alati (npr. SonarQube sa Mule pluginom, ili Integral Zone’s Code Analyzer ) koji ovo mogu automatski.
+
+* *Performanse i load test:* Prije produkcije, dobro je uraditi *performance testiranje* u staging okruženju koje je što sličnije produkciji. Cilj: potvrditi da aplikacija može podnijeti očekivano opterećenje (npr. X zahtjeva po sekundi) uz prihvatljive resursne usage. MuleSoft preporučuje definisanje _representativnih workload-a_ i korišćenje alata (JMeter, Locust, itd.) da simuliraju scenario . Time otkrijemo potencijalna uska grla unaprijed. Ako se uoče problemi, mogu se tuning parametri prilagoditi (broj worker-a na CloudHub-u, veličina thredpool-a ako je on-prem, povećati memorija, ili optimizovati sam kod: možda uvesti streaming gdje je bilo buffering i sl.). Ovakvo testiranje i podešavanje spada u *Performance Tuning Guide* aktivnosti .
+
+[mermaid,performance-testing-flow,svg]
+....
+flowchart TD
+    A["Staging Environment"]
+    B["Load Testing Tool (JMeter / Locust)"]
+    C["Simulated User Requests"]
+    D["Monitor CPU / Memory / Latency"]
+    E["Identify Bottlenecks"]
+    F["Tune Application or Resources"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *Bezbednost (Security) i konfiguracija:* Uvjeriti se da su sve lozinke i tajne parametri postavljeni kroz Secure Properties (i da su šifrovani ključevi pravilno upravljani). Proveriti da li su ispravno postavljeni CORS (za API-je), politika autentikacije (ako API ide kroz API Manager, osigurati da su policy-i primjenjeni, npr. Client ID Enforcement ili OAuth 2.0 ako treba). Takođe, pregledati da li aplikacija ne odaje previše informacija u logovima ili greškama (npr. stacktrace klijentu – to smo riješili error handling-om). Ukratko, *security review* aplikacije: minimalno, imati definisane pre-auth filtre (ako je javni API), sanitizovati izlaz (da ne procure interne info), i ukloniti nepotrebne debug funkcionalnosti.
+
+* *Priprema konfiguracija za razna okruženja:* U MuleSoft-u tipično imamo _dev, test, prod_ environment (bilo na CloudHub-u ili on-prem). Podesiti u properties fajlovima odgovarajuće vrijednosti za svaki env (npr. dev koristi dev bazu, test koristi staging bazu, prod pravi prod bazu). Provjeriti da switch prelaskom environmenta radi glatko – često se ovdje koristi *Mule Maven plugin profiles* da generiše različite konfiguracije za svako okruženje. Ako je aplikacija za CloudHub, iskoristiti *Secure Properties Tool* da enkriptuje osjetljive vrijednosti i unijeti ih kao Secure Properties. Takođe, ako se koristi API Manager, uvjeriti se da je API instanca kreirana za prod environment i vezana s deploymentom (jer policy-i se možda razlikuju dev vs prod).
