@@ -24,3 +24,4 @@
 * xref:10_cicd_and_devops_in_mulesoft_ecosystem.adoc[10. CI/CD i DevOps u MuleSoft ekosistemu]
 ** xref:10_1_continuous_integration_for_mule_applications.adoc[10.1 Kontinuirana integracija (CI) Mule aplikacija]
 ** xref:10_2_continuous_delivery_and_deployment.adoc[10.2 Kontinuirana isporuka i deployment (CD)]
+** xref:10_3_devops_journey_conclusion.adoc[10.3 Zaključak DevOps putovanja]

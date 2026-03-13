@@ -1,0 +1,35 @@
+:translation-source: sr
+:page-lang: sr
+==== *10.3 Zaključak DevOps putovanja*
+
+Uspostavljanjem CI/CD i DevOps discipline u MuleSoft ekosistemu, postiže se da je isporuka integracija *brža, pouzdanija i ponovljiva*. Više nema straha od “deployment day” jer je deployment postao rutinska, skriptovana radnja. Tako se tim može fokusirati na dodavanje vrijednosti (novih integracija, poboljšanje postojećih) umjesto na gašenje požara i ručne procese.
+
+[mermaid,mulesoft-devops-journey,svg]
+....
+flowchart TD
+    A["Learn Mule Concepts"]
+    B["Build Integrations"]
+    C["Apply Design Best Practices"]
+    D["Testing with MUnit"]
+    E["CI/CD Automation"]
+    F["Production Operations"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+Kao završnu misao ovog vodiča: MuleSoft razvojni put započinje učenjem koncepta (Mule Event, flow-ovi, DataWeave), nastavlja se praktičnom izradom integracija, zatim kroz najbolje prakse dizajna i testiranja osiguravamo kvalitet, i konačno kroz DevOps i CI/CD *automatizujemo i operacionalizujemo* sve te integracije. Na taj način zatvaramo krug modernog razvoja – od koda do produkcije – unutar MuleSoft platforme.
+
+++*++(📎 *Reference:* MuleSoft dokumentacija za CI/CD pruža primjere i smjernice, npr. “Continuous Integration and Deployment” dokument ističe kako mule-maven-plugin podržava CloudHub, RTF i on-prem deploy, te navodi upotrebu Jenkins-a i drugih alata. Takođe, MuleSoft blog ima članke poput “How to automate Jenkins pipeline for Mule deploy” . Preporučujemo te izvore za konkretne implementacione detalje.)
+
+*Napomena:* Ovim završavamo konceptualni vodič kroz Mule 4. Prošli smo od uvoda, preko razvoja, do operativnih aspekata. Ako ste pažljivo pratili sva poglavlja, sada biste kao junior developer trebali imati dobru predstavu _šta je Mule 4_, kako se koriste njegove glavne mogućnosti, i kako izgraditi kvalitetne integracije spremne za enterprise okruženje. Srećan rad i integrisanje!
+
+* https://www.mulesoft.com/integration/continuous-integration-continuous-delivery[MuleSoft CI/CD, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/mmp-concept[Mule Maven Plugin, window="_blank"]
+* https://dzone.com/articles/mulesoft-code-review-automation-using-sonarqube[Static Code Analysis, window="_blank"]
+* https://www.mulesoft.com/integration/devops-integration[DevOps u MuleSoftu, window="_blank"]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSdSAgMC3XS7gnqIIVk8rf8x8o08V8h2VViAk2UroeN2EPW2dQ/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]

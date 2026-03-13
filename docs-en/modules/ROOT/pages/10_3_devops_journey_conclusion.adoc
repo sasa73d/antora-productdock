@@ -1,0 +1,35 @@
+:translation-source: sr
+:page-lang: en
+==== *10.3 Conclusion of the DevOps Journey*
+
+By establishing CI/CD and DevOps discipline within the MuleSoft ecosystem, the delivery of integrations becomes *faster, more reliable, and repeatable*. There is no longer a fear of “deployment day” because deployment has become a routine, scripted operation. This allows the team to focus on adding value (new integrations, improving existing ones) rather than firefighting and manual processes.
+
+[mermaid,mulesoft-devops-journey,svg]
+....
+flowchart TD
+    A["Learn Mule Concepts"]
+    B["Build Integrations"]
+    C["Apply Design Best Practices"]
+    D["Testing with MUnit"]
+    E["CI/CD Automation"]
+    F["Production Operations"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+As a closing thought of this guide: the MuleSoft development journey begins with learning the concepts (Mule Event, flows, DataWeave), continues with practical integration development, then through best design and testing practices we ensure quality, and finally through DevOps and CI/CD we *automate and operationalize* all those integrations. In this way, we close the loop of modern development – from code to production – within the MuleSoft platform.
+
+++*++(📎 *References:* MuleSoft documentation for CI/CD provides examples and guidelines, e.g., the “Continuous Integration and Deployment” document highlights how mule-maven-plugin supports CloudHub, RTF, and on-prem deployment, and mentions the use of Jenkins and other tools. Additionally, the MuleSoft blog has articles like “How to automate Jenkins pipeline for Mule deploy”. We recommend these sources for concrete implementation details.)
+
+*Note:* With this we conclude the conceptual guide through Mule 4. We have covered from introduction, through development, up to operational aspects. If you have carefully followed all chapters, you should now, as a junior developer, have a good understanding of _what Mule 4 is_, how to use its key features, and how to build quality integrations ready for an enterprise environment. Happy working and integrating!
+
+* https://www.mulesoft.com/integration/continuous-integration-continuous-delivery[MuleSoft CI/CD, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/mmp-concept[Mule Maven Plugin, window="_blank"]
+* https://dzone.com/articles/mulesoft-code-review-automation-using-sonarqube[Static Code Analysis, window="_blank"]
+* https://www.mulesoft.com/integration/devops-integration[DevOps in MuleSoft, window="_blank"]
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSdSAgMC3XS7gnqIIVk8rf8x8o08V8h2VViAk2UroeN2EPW2dQ/viewform?usp=publish-editor[Short knowledge check quiz, window="_blank"]
