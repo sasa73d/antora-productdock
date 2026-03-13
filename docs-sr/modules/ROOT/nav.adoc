@@ -13,3 +13,4 @@
 * xref:6_real_mule_flow_design_best_practices.adoc[6. Kako izgleda pravi Mule flow (najbolje prakse dizajna)]
 ** xref:6_1_anatomy_of_a_healthy_mule_flow.adoc[6.1 Anatomija zdravog Mule flow-a]
 ** xref:6_2_mule_flow_structure_case_study.adoc[6.2 Primjer strukture (studija slučaja)]
+* xref:7_common_mistakes_and_antipatterns_in_mule_applications.adoc[7. Česte greške i anti-pattern-i u Mule aplikacijama]

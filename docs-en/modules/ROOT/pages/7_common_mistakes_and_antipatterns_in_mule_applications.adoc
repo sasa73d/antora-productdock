@@ -1,0 +1,54 @@
+:translation-source: sr
+:page-lang: en
+=== *7. Common mistakes and* 
+
+=== *anti-pattern*
+
+=== *-s in Mule applications*
+
+As with any technology, there are common pitfalls that developers (especially beginners) can fall into when developing MuleSoft integrations. Here we will list the most frequent mistakes and bad practices, along with recommendations on how to avoid them. To a large extent, these anti-patterns are the _opposites_ of what we previously identified as good design.
+
+[mermaid,mule-anti-patterns-overview,svg]
+....
+flowchart TD
+    A["Monolithic Flows"]
+    B["Hardcoded Configuration"]
+    C["Poor Logging"]
+    D["Weak Error Handling"]
+    E["Tight Coupling"]
+    F["Component Misuse"]
+
+    A --> G["Maintenance Problems"]
+    B --> G
+    C --> G
+    D --> G
+    E --> G
+    F --> G
+....
+
+*1. Monolithic flows (too much logic in one flow):* One of the most common mistakes is putting the entire integration logic—from validation to all external calls and transformations—into one huge flow. Such a flow is difficult to follow and test. *Symptom:* you have a flow with dozens of components in sequence, doing many different things, and it keeps growing. *Consequences:* reuse is difficult (logic cannot be called externally nor isolated), error handling is complicated (everything is in one context), reduced clarity. *Solution:* _modularization._ As described, use subflows and private flows to break down the problem. Especially separate different concerns: validation in one part, data aggregation in another, sending notifications in a third, etc. "Don't put everything in one flow; rather break the flow and subflows into smaller units for modularity, reuse, and better error handling." This approach also leads to better MUnit tests – you can write a test for each smaller module, which is much easier than one mega test for a mega flow.
+
+*2. Hardcoding data and configuration:* Another common mistake is writing literal values for things that should be externalized. This includes URLs and credentials for databases/services, magic numbers for timeouts, configuration parameters such as file path names, etc., directly in connector configurations or scripts. *Why it's bad:* when you move the application from dev to production, you have to manually change these values; there is a high risk of errors, plus likely sensitive data leakage (passwords in code!). *Correct:* Use Mule Properties (configuration files) and/or Secure Properties for sensitive items. Mule allows you to mark values as placeholders, e.g. $++{++db.password} which is fetched from the properties file for the specific environment. Put passwords and secrets in *secure-properties* (encrypted). So, _never store usernames, passwords, or other sensitive info directly in the application's XML configuration._ Instead, externalize everything and load it via configuration. This makes the application portable and more secure.
+
+*3. Excessive or improper logging:* Logging is essential for debugging and monitoring, but two mistakes are often made: either almost no logging (making it hard to later understand what happened), or logging too much (every step, even huge payloads, which floods logs and slows down). A special problem is logging large payloads like a full 5 MB XML document – this can slow the app and generate gigabytes of logs. *Recommendation:* _balanced logging_. Log *key events*: e.g. entering the flow (optionally with request ID), successful database insert (with key parameters), errors (definitely). Do not log complete data unless absolutely necessary – if so, maybe log only for debug in dev environment. MuleSoft advises applying logging strategies at the entry and exit of each significant part, but be mindful of data size. Also, use log levels: INFO for normal events, DEBUG for details (which you enable as needed), ERROR for errors. This ensures in production you can keep logs at INFO (or WARN) and have clean logs, and in debug mode get more detail. And remember – if you log, check if you might accidentally log sensitive data (passwords, tokens). That should be masked or omitted from logs.
+
+*4. Neglecting error handling:* Some beginners create flows that work only for the "happy path" scenario and do not cover what happens if something goes wrong. They implicitly rely on Mule to return some error. This leads to unhandled exceptions, HTTP 500 responses without meaningful messages to clients, or worse – partially completed integrations (e.g. written to system A, fail in system B, data inconsistent). *Best practice:* _Catch and handle errors where needed._ Mule offers *error handling* mechanisms – use them. If you know a certain expected error might happen (e.g. duplicate write, or external service returns 404), catch it (On Error Continue) and respond meaningfully (e.g. return 409 or 502 to client etc.). Catch all other unexpected errors globally (On Error Propagate at flow or even app level) and log them, and return a properly formatted response to the client (at least a generic error format). *Do not let Mule send stack traces directly to clients.* So, _plan error handling as part of design_, not as an afterthought. (Note: Implement global error handling strategy – e.g. global exception handler via error handlers at app levels – this ensures nothing "leaks through").
+
+*5. Tight coupling of integrations:* This is a broader concept – it refers to a design where integration components are too dependent on each other. For example, the flow is written so that system A must be called, then B, then C exactly in that synchronous order, and you cannot separate them – the whole integration fails if one is unavailable. Another example: integration uses no queue or asynchronous mechanism when it would make sense (e.g. sends 10 emails sequentially and keeps the client waiting the whole time). *Solution:* consider where *de-coupling* can be introduced. MuleSoft allows _asynchronous flow_ (Async scope or VM/Anypoint MQ mechanisms). If a certain process part can be done independently, separate it. For example, after order creation, instead of waiting synchronously to send email, it's better if email sending is a separate flow (maybe triggered by publishing a message to a queue). This way the main process depends less on the side process. Use *publish-subscribe* patterns over Anypoint MQ or JMS when you have multiple loosely connected components. This improves scalability and resilience: if email service goes down, queue holds messages, and the main process still works. Also, if integration needs to be extensible (adding more consumers later), pub-sub facilitates that without changing existing flow. Essentially, _aim for loose coupling_ – integration components should be as independent as possible, communicate through well-defined interfaces (REST API, queue, etc.), instead of directly sharing memory state or similar tricks.
+
+*6. Misuse of components (e.g. Choice router):* Certain powerful components, like *Choice router*, can be misused. For instance, a developer uses Choice to do something that could be simpler (like assigning variable values)—introducing unnecessary complexity. Or puts _too many_ branches in one Choice making logic hard to follow. MuleSoft best practice is: _use Choice router when you really route the message to different flows_ (e.g. if message type is X go to flowA, if Y to flowB). Don’t use Choice for every small conditional operation – sometimes it’s better to set a variable or use a DataWeave expression inside the component itself. As one blog puts it: _don’t use Choice router for trivial conditional value setting; that can look ugly and unnecessarily complicated – instead, if it’s data transformation, do it in DataWeave or simpler components._ In short: *the right tool for the right job.* Do not turn every if/else into a huge Choice block if not necessary. Similarly, be careful not to use DataWeave where it’s not needed (e.g. for a simple variable assignment there is a _Set Variable_ component that is faster to write and clearer), and vice versa – don’t try doing complex mappings without DataWeave (i.e. manually in Java etc.) as that loses platform advantage.
+
+We have listed only some of the most common anti-patterns. There are others, e.g. _non-optimized handling of large data_ (e.g. instead of streaming, someone loads a huge file into memory unnecessarily – the solution is to use Mule _Batch_ or streaming since Mule supports stream read), _ignoring resource limits_ (not setting timeouts on connectors so they hang indefinitely), etc. But much of it boils down to general principles: modularity, configuration externalization, balanced logging, proper error handling, and thinking about scalability.
+
+The good news is that the MuleSoft ecosystem has many tools to help you avoid these mistakes: linters and code analyzers (plugins exist that can statically analyze Mule config and warn about, say, hardcoded passwords or missing error handlers), *_MuleSoft guidelines_* (C4E – Center for Enablement – manuals that often list such best practices), and community/blogs like this one. *If in doubt, consult documentation or more experienced colleagues* – it will save you time and headaches later.
+
+In short, knowing these anti-patterns is half the battle: now you know what _not to do_. In the next section we will move to the topic of testing Mule applications, where we will see how all these principles reflect on the ability to thoroughly test and ensure the quality of our integration before releasing it to production.
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/secure-configuration-properties[Configuration Externalization]
+* https://docs.mulesoft.com/mule-runtime/latest/intro-error-handlers[Mule Error Handling Strategies]
+* https://docs.mulesoft.com/mule-runtime/latest/async-scope-reference[Asynchronous flow and de-coupling]
+* https://docs.mulesoft.com/mule-runtime/latest/logging-in-mule[Logging Best Practices]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeHG-nu_P9b8_8OjugJyNwv9BFk694QKo3K8d-nra7PXiPS5w/viewform?usp=publish-editor[Short knowledge check quiz, window="_blank"]

@@ -1,0 +1,54 @@
+:translation-source: sr
+:page-lang: sr
+=== *7. Česte greške i* 
+
+=== *anti-pattern*
+
+=== *-i u Mule aplikacijama*
+
+Kao i kod svake tehnologije, postoje uobičajene zamke u koje developeri (pogotovo početnici) mogu upasti prilikom razvoja MuleSoft integracija. Ovdje ćemo navesti najčešće greške i loše prakse, zajedno sa preporukama kako ih izbjeći. U velikoj mjeri, ovi anti-patterni su _suprotnosti_ onoga što smo ranije označili kao dobar dizajn.
+
+[mermaid,mule-anti-patterns-overview,svg]
+....
+flowchart TD
+    A["Monolithic Flows"]
+    B["Hardcoded Configuration"]
+    C["Poor Logging"]
+    D["Weak Error Handling"]
+    E["Tight Coupling"]
+    F["Component Misuse"]
+
+    A --> G["Maintenance Problems"]
+    B --> G
+    C --> G
+    D --> G
+    E --> G
+    F --> G
+....
+
+*1. Monolitni flow-ovi (previše logike u jednom flow-u):* Jedna od najčešćih grešaka je stavljanje kompletne integracione logike, od validacije do svih eksternih poziva i transformacija, u jedan jedini ogroman flow. Takav flow je teško pratiti i testirati. *Simptom:* imate flow koji ima desetine komponenti u nizu, radi mnogo različitih stvari i raste sve više. *Posljedice:* otežana ponovna upotreba (logika se ne može pozvati izvana niti izolovati), komplikovano rukovanje greškama (sve je u jednom konteKstu), smanjena preglednost. *Rješenje:* _modularizacija._ Kao što smo opisali, koristite subflow-ove i privatne flow-ove da podijelite problem. Posebno odvojite različite concern-e: validacija u jedan dio, spajanje podataka u drugi, slanje notifikacija u treći, itd. “Nemojte stavljati sve u jedan flow; radije razbijte flow i subflow na manje cjeline radi modularnosti, ponovne upotrebe i boljeg upravljanja greškama” . Ovakav pristup vodi i do boljih MUnit testova – možete pisati test za svaki manji modul, što je daleko lakše nego jedan mega test za mega flow.
+
+*2. Hardkodiranje podataka i konfiguracije:* Druga česta greška je upisivanje doslovnih vrijednosti za stvari koje bi trebalo externalizovati. To uključuje: URL-ove i kredencijale za baze/servise, magične brojeve za timeout-e, konfiguracione parametre kao što su nazivi file path-ova itd., direktno u konektor konfiguracije ili skripte. *Zašto je to loše:* kad aplikaciju premjestite iz dev okruženja u prod, moraćete ručno mijenjati te vrijednosti; rizik od greške je velik, plus vjerovatno curenje osjetljivih podataka (lozinke u kodu!). *Ispravno:* Koristite Mule Properties (konfiguracione datoteke) i/ili Secure Properties za osjetljive stvari. Mule omogućava da vrijednosti označite placeholder-ima, npr. $++{++db.password} koji se povuče iz properties fajla za konkretno okruženje. Lozinke i tajne stavite u *secure-properties* (šifrirane). Dakle, _nikada ne čuvati korisnička imena, lozinke i druge osjetljive info direktno u XML konfiguraciji aplikacije_. Umjesto toga, sve externalizovati i učitavati preko konfiguracije . Tako aplikacija postaje prenosiva i sigurnija.
+
+*3. Pretjerano ili nepravilno logovanje:* Logovanje je neophodno za debug i nadzor, ali često se naprave dvije greške: ili se gotovo ništa ne loguje (pa je teško kasnije shvatiti šta se dešavalo), ili se loguje previše (svaki korak, čak i ogromni payload-i, što zatrpava logove i usporava). Poseban problem je logovanje velikih payload-a poput cijelog XML dokumenta od 5 MB – to može usporiti aplikaciju i generisati gigabajte logova. *Preporuka:* _uravnoteženo logovanje_. Logovati *ključne događaje*: npr. ulazak u flow (sa eventualno ID-jem zahtjeva), uspješno obavljen upis u bazu (sa možda ključnim parametrima), greške (svakako). Ne logovati kompletne podatke osim ako je baš potrebno – ako jeste, možda logovati samo za debug u dev okruženju. MuleSoft savjetuje da se primijeni strategija logovanja na ulazu i izlazu svakog značajnog dijela, ali uz pažnju na veličinu podataka . Takođe, iskoristite log nivoe: INFO za normalne događaje, DEBUG za detalje (koje ćete uključiti po potrebi), ERROR za greške. To osigurava da u produkciji možete držati log na INFO (ili WARN) i imati čiste logove, a u debug mode-u dobiti više detalja. I zapamtite – ako logujete, provjerite da li možda slučajno logujete i osjetljive stvari (lozinke, tokeni). To treba maskirati ili izostaviti iz logova.
+
+*4. Zanemarivanje error handling-a:* Neki početnici naprave flow koji radi “srećan put” scenario, ali ne obuhvate šta ako nešto pođe naopako. Oslanjaju se implicitno na Mule da će vratiti neku grešku. To vodi do neuhvaćenih izuzetaka, HTTP 500 odgovora bez smislenih poruka klijentu, ili još gore – do polovično odrađenih integracija (npr. upisano u sistem A, a fail u sistemu B, pa podaci nedosljedni). *Najbolja praksa:* _Uhvati i zbrini greške tamo gdje je to potrebno._ Mule nudi *error handling* mehanizme – iskoristite ih. Ako znate da se može desiti određena očekivana greška (npr. duplikat pri upisu, ili eksterni servis vraća 404), hvatajte to (On Error Continue) i reagujte smisleno (npr. vratite klijentu 409 ili 502 itd.). Sve ostale neočekivane greške uhvatite globalno (On Error Propagate na nivou flow-a ili čak aplikacije) i logujte ih, te klijentu vratite korektno formatiran odgovor (makar generički error format). *Ne prepustiti Mule-u da sam šalje stack trace klijentu.* Dakle, _planirajte upravljanje greškama kao dio dizajna_, a ne kao naknadnu misao. (Napomena: Uvedite globalni error handling strategiju – npr. globalna ekscepcija handler putem error handler-a na nivoima aplikacije – tako osigurate da ništa ne “procuri”).
+
+*5. Čvrsta sprega (tight coupling) integracija:* Ovo je malo širi koncept – odnosi se na dizajn gdje su komponente integracije suviše zavisne jedna od druge. Recimo, flow je tako napisan da se mora pozvati sistem A pa B pa C u tačno tom redoslijedu sinhrono, i ne možeš to razdvojiti – cijela integracija propada ako jedan nije dostupan. Ili drugi primjer: integracija ne koristi nikakav red ili asinkroni mehanizam kad bi to imalo smisla (npr. šalje 10 emailova redom i drži klijenta na vezi sve vrijeme). *Rješenje:* razmotriti gdje se može uvesti *de-coupling*. MuleSoft omogućava _asinkroni tok_ (Async scope ili VM/Anypoint MQ mehanizme). Ako određeni dio procesa može biti obavljen nezavisno, razdvojite ga. Npr. nakon što kreirate order, umjesto da sinhrono čekate da se pošalje email, bolje je da email slanje bude poseban flow (možda pokrenut putem publikovanja poruke na queue). Tako glavni proces manje zavisi od sporednog. Koristite *publish-subscribe* obrasce preko Anypoint MQ ili JMS kada imate više slabije povezanih komponenti . To poboljšava skalabilnost i otpornost: ako email servis padne, queue zadržava poruke, a glavni proces i dalje radi. Takođe, ako integracija treba da bude proširiva (sutra dodamo još jedan potrošač tih podataka), pub-sub će to olakšati bez mijenjanja postojećeg flow-a. U suštini, _težite labavoj sprezi_ – komponenta integracije treba biti što nezavisnija, komunicirati kroz jasno definisane interfise (REST API, queue, etc.), umjesto direktno kroz share-ovan memorijski state ili slične trikove.
+
+*6. Zloupotreba komponenti (npr. Choice router-a):* Određene moćne komponente, poput *Choice router*, mogu biti pogrešno korišćene. Npr. developer koristi Choice da uradi nešto što se moglo jednostavnije (kao dodelu vrijednosti varijabli) – time uvodi nepotrebnu složenost. Ili stavi _previše_ grana u jedan Choice što otežava praćenje logike. MuleSoft best practice je: _Choice router koristi kada stvarno routaš poruku na različite tokove_ (npr. ako je tip poruke X idi u flowA, ako Y u flowB). Nemoj koristiti Choice za svaku sitnu uslovnu operaciju – ponekad je bolje postaviti varijablu ili iskoristiti DataWeave izraz u samoj komponenti. Kao što navodi jedan blog: _nemojte koristiti Choice router za banalno postavljanje uslovne vrijednosti; to može izgledati ružno i nepotrebno zakomplikovano – umjesto toga, ako je riječ o transformaciji podataka, odradite to u DataWeave-u ili putem prostijih komponenti_ . Ukratko: *pravo oruđe za pravI zadatak.* Ne pretvarati svaki if/else u ogromni Choice blok ako nije nužno. Slično, pazite da ne koristite DataWeave gdje nije potrebno (npr. za prosto dodjeljivanje jedne vrijednosti varijabli postoji _Set Variable_ komponenta brža za napisati i jasnija) , i obrnuto – ne pokušavati raditi složene mapiranja bez DataWeave-a (tj. ručno u Javi ili sl.), jer to gubi prednost platforme.
+
+Nabrojali smo samo neke od najčešćih anti-patterna. Postoje i drugi, npr. _neoptimizovano baratanje velikim podacima_ (npr. umjesto streaminga, neko učita ogroman fajl u memoriju nepotrebno – rješenje je koristiti Mule _Batch_ ili streaming jer Mule podržava stream read), _ignoriranje resursnih limita_ (ne postaviti timeout-e na konektorima pa vise beskonačno), itd. No, mnogo toga se svodi na generalna načela: modularnost, externalizacija konfiguracije, balansirano logovanje, pravilno rukovanje greškama, i razmišljanje o skalabilnosti.
+
+Dobra vijest je da MuleSoft ekosistem ima puno alata da vam pomogne izbjeći ove greške: linters i code analyzers (Postoje plugins koji mogu statički analizirati Mule config i upozoriti na, recimo, hardkodovane lozinke ili nedostatak error handler-a), *_MuleSoft linije vodiča_* (C4E – Center for Enablement – priručnici koji često nabrajaju ovakve best practices), i zajednica/blogovi kao ovaj. *Ukoliko sumnjate, posavjetujte se sa dokumentacijom ili iskusnijim kolegama* – uštediće vam vrijeme i glavobolje kasnije.
+
+Ukratko, upoznavanje ovih anti-patterna je pola puta do uspjeha: sada znate šta da _ne radite_. U sljedećem dijelu ćemo preći na temu testiranja Mule aplikacija, gdje ćemo vidjeti kako se svi ovi principi odražavaju na mogućnost da temeljno testiramo i osiguramo kvalitet naše integracije prije nego što je pustimo u produkciju.
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/secure-configuration-properties[Externalizacija konfiguracije]
+* https://docs.mulesoft.com/mule-runtime/latest/intro-error-handlers[Mule Error Handling Strategije]
+* https://docs.mulesoft.com/mule-runtime/latest/async-scope-reference[Asinkroni tok i de-coupling]
+* https://docs.mulesoft.com/mule-runtime/latest/logging-in-mule[Best Practice Logovanje]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSeHG-nu_P9b8_8OjugJyNwv9BFk694QKo3K8d-nra7PXiPS5w/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
