@@ -1,0 +1,26 @@
+:translation-source: sr
+:page-lang: sr
+==== *5.1 Mule Event detaljnije – tok poruke kroz sistem*
+
+Već smo definisali Mule Event (payload {plus} atributi {plus} varijable). U svakom trenutku, *Mule runtime zna u kojoj fazi obrade je Event* i prilagođava njegovo ponašanje. Evo šta se tipično dešava od ulaska do izlaska jednog Event-a kroz Mule aplikaciju:
+
+[mermaid,mule-event-lifecycle-through-system,svg]
+....
+flowchart TD
+    A["Inbound Event / Entry Point"]
+    B["Validation and Preparation"]
+    C["Processing and Transformation"]
+    D["Output / Response"]
+
+    A --> B
+    B --> C
+    C --> D
+....
+
+[arabic]
+. *Ulazni event (Entry Point):* Kada ulazni konektor primi zahtjev ili poruku (bilo HTTP request, dolazni fajl, JMS poruga, itd.), Mule runtime kreira novi Mule Event. Ovaj Event sadrži _inbound_ podatke (payload i atribute specifične za taj konektor). Npr. za HTTP Listener, payload je tijelo HTTP zahtjeva (ili null ako ga nema), atributi sadrže HTTP metode, zaglavlja, parametre, itd. Event tada ulazi u odgovarajući flow na prvom procesoru.
+. *Osnovna validacija i priprema:* Često prva stvar u flow-u (nakon source-a) bude neka provjera ili priprema podataka. Na primjer, možda provjeravamo da li su poslati svi obavezni parametri, da li korisnik ima validnu autentikaciju (ako flow očekuje JWT token ili API ključ), ili postavljamo neke varijable. Cilj ove faze je da *brzo utvrdimo može li se nastaviti obrada* – ako neki preduslov nije ispunjen, bolje je odmah vratiti grešku nego ići dalje bez smisla. U našem HelloMule primjeru, mi nismo imali posebnu validaciju (jer je primjer trivijalan), ali u realnosti bismo ovdje mogli, recimo, odbiti zahtjev ako nije dostavljen određeni header ili ako je payload prazan kad ne bi smio biti, i sl.
+. *Obrada i transformacija (core logika):* Ovo je srce flow-a – niz koraka koji *obrađuju podatke i izvršavaju integracionu logiku*. Tipično, ovdje spadaju pozivi ka spoljnim sistemima (npr. čitanje iz baze, poziv REST API-ja nekog SaaS servisa, itd.), zatim transformacije dobijenih podataka u oblik potreban sljedećem sistemu ili za odgovor klijentu (ovo je mjesto gdje DataWeave igra veliku ulogu), primjena poslovne logike (npr. filtriranje rezultata, spajanje podataka iz više izvora, izračunavanje nekih vrijednosti). U ovoj fazi Event često mijenja svoj payload – npr. prvo je bio zahtjev od klijenta, zatim smo payload zamijenili rezultatima upita baze, pa opet transformisali u finalnu strukturu za odgovor. *Sve ove promjene dešavaju se unutar istog Event-a* koji se prosljeđuje dalje kroz komponente. Konektori koje ovdje koristimo (outbound konektori) mogu biti *blokirajući* (čekaju odgovor, npr. HTTP Request za REST API će čekati HTTP odgovor) ili ne (npr. neki mogu raditi async). Mule runtime to interno optimizuje (koristi različite thread pool-ove za različite tipove rada – CPU lake, CPU teške operacije, I/O operacije – i automatski raspoređuje izvršavanje da bi maksimalno iskoristio resurse) . Važno je znati da je Mule 4 runtime zasnovan na *reaktivnom, neblokirajućem modelu* gdje god je to moguće – to znači da pokušava da ne “zaglavi” niti čekajući rezultate već koristi event loop i asinhrono procesiranje kako bi povećao propusnost. Drugim riječima, Mule 4 je dizajniran za *non-blocking i asinhrono izvršavanje* kao reaktivni engine , što developera oslobađa potrebe da ručno upravlja nitima ili asinhronim pozivima u većini slučajeva.
+. *Izlaz / odgovor:* Kada se obrade sve potrebne operacije, dolazimo do kraja flow-a. Ovde Mule priprema *odlazni Event* – u slučaju request-response flow-a (kao naš HTTP API), to znači formiranje odgovora klijentu. Ako je flow bio one-way (npr. čita fajl pa upiše u bazu, bez klijenta koji čeka), onda je “izlaz” možda slanje potvrde negdje ili završetak obrade. U svakom slučaju, Mule runtime uzima finalni stanje Event-a i: za sync protok vraća odgovor originalnom pozivaocu (HTTP, JMS reply itd.), a za async protok jednostavno završava obradu ili pokreće naredni flow (npr. pub-sub obrasci). U ovoj fazi često radimo *posljednje pripreme rezultata* – npr. formatiramo datume kako klijent očekuje, filtriramo osjetljive informacije iz odgovora, ili agregiramo podatke ako je to multi-part odgovor. Nakon toga, misija tog flow-a je završena.
+
+Upravo opisani konceptualni obrazac (ulaz → validacija → obrada → izlaz) prati većina “zdravih” Mule flow-ova . Pridržavanje ovog reda čini flow *predvidivim, čitljivim i lakšim za održavanje* . Treba naglasiti da Mule runtime automatski brine o mnogim detaljima: na primjer, *upravljanje thread-ovima*. Svaki event source koristi određeni thread pool (npr. HTTP Listener koristi _I/O threads_ za prihvat zahtjeva, pa prelazi na _CPU-light threads_ za dalje procesiranje, itd.). Mule 4 uvodi automatsko podešavanje thread pool-ova zavisno od tipa posla (CPU-intenzivno, I/O, sl.) – developeri uglavnom ne moraju ručno podešavati threading parametre, jer runtime to *sam podešava i optimizuje* prema opterećenju . Kao rezultat, Mule aplikacije su izuzetno *skalable* bez mnogo truda – dodavanjem više vCore resursa aplikaciji, Mule samo proširi svoje thread pool-ove i obrađuje veći throughput.

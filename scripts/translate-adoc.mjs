@@ -163,13 +163,13 @@ function escapeRegExp(value) {
 }
 
 function createSpinner(message) {
-  const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let i = 0;
 
   process.stdout.write(`${frames[0]} ${message}`);
 
   const timer = setInterval(() => {
-    const frame = frames[i = (i + 1) % frames.length];
+    const frame = frames[(i = (i + 1) % frames.length)];
     process.stdout.write(`\r${frame} ${message}`);
   }, 80);
 
@@ -234,7 +234,7 @@ function isMacroOnlyLine(line) {
 
 function isAnchorLine(line) {
   const trimmed = line.trim();
-  return /^\[\[[^\]]+\]\]$/.test(trimmed);
+  return /^$begin:math:display$\\\[\[\^$end:math:display$]+\]\]$/.test(trimmed);
 }
 
 function isProtectedSingleLine(line) {
@@ -529,9 +529,6 @@ function normalizeTopOfFileStructure(sourceText, adocText, direction, translatio
     sourceHeadingIdx !== -1 &&
     (!sourceTopAttrs.hasTopAttrBlock || sourceHeadingIdx < sourceTopAttrs.start);
 
-  // Case 1:
-  // Source begins with attributes, but target begins with heading and has attrs after it.
-  // Move contiguous top attrs above the first heading.
   if (
     sourceStartsWithAttrs &&
     targetHeadingIdx === 0
@@ -551,9 +548,6 @@ function normalizeTopOfFileStructure(sourceText, adocText, direction, translatio
     }
   }
 
-  // Case 2:
-  // Source begins with heading, but target begins with top attrs and heading follows.
-  // Move heading above top attrs.
   if (
     sourceStartsWithHeading &&
     targetTopAttrs.hasTopAttrBlock &&
@@ -574,7 +568,6 @@ function normalizeTopOfFileStructure(sourceText, adocText, direction, translatio
     ];
   }
 
-  // Final cleanup
   return collapseLeadingBlankLines(targetLines.join('\n'));
 }
 
@@ -598,8 +591,9 @@ function attemptCheapStructuralRepair(sourceText, translatedText, direction, tra
  * @param {boolean} isSafeMode - Whether to use SAFE MODE instructions
  * @param {'en-sr'|'sr-en'} direction - translation direction
  * @param {string} translationSource - source of truth for the page pair
+ * @param {string} inputPath - source file path, used for CLI feedback
  */
-async function translateAdocContent(adocText, isSafeMode, direction, translationSource) {
+async function translateAdocContent(adocText, isSafeMode, direction, translationSource, inputPath) {
   let instructions;
   if (direction === 'sr-en') {
     instructions = isSafeMode ? safeModeInstructionsSrEn : normalInstructionsSrEn;
@@ -610,15 +604,22 @@ async function translateAdocContent(adocText, isSafeMode, direction, translation
   const { protectedText, protectedLines } = protectCodeAndLiteralBlocks(adocText);
   const model = pickTranslateModel();
 
-  createSpinner(`Translating ${path.basename(inputPath)}...`);
+  let stopSpinner = null;
+  let response;
 
-  const response = await client.responses.create({
-    model,
-    instructions,
-    input: protectedText,
-  });
+  try {
+    stopSpinner = createSpinner(`Translating ${path.basename(inputPath)}...`);
 
-  stopSpinner();
+    response = await client.responses.create({
+      model,
+      instructions,
+      input: protectedText,
+    });
+  } finally {
+    if (typeof stopSpinner === 'function') {
+      stopSpinner();
+    }
+  }
 
   try {
     const usage = extractUsageFromOpenAIResponse(response);
@@ -763,7 +764,8 @@ async function main() {
     adocText,
     isSafeMode,
     direction,
-    translationSource
+    translationSource,
+    inputPath
   );
 
   const outputDir = path.dirname(outputPath);

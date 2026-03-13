@@ -523,7 +523,7 @@ function detectManualEditsOnSecondaryPages() {
     const isSecondary = meta.translationSource !== pair.selfLang;
     if (!isSecondary) continue;
 
-    const sourceFile = pair.other;
+    const sourceFile = meta.translationSource === "en" ? pair.other : pair.other;
 
     const sourceStaged = getStagedFiles([sourceFile]).length > 0;
     if (sourceStaged) continue;
@@ -609,26 +609,6 @@ function getTranslationSource(file) {
   return meta.translationSource || defaultLangFromFolder(file);
 }
 
-function determineAnalyzerResult(file, targetFile, status) {
-  if (status === "A") {
-    console.log(`ℹ️  New source page detected. Forcing TEXT_AND_STRUCTURE for ${file}.`);
-    return "TEXT_AND_STRUCTURE";
-  }
-
-  const r = run(
-    process.execPath,
-    [path.join("scripts", "analyze-changes.mjs"), file, targetFile],
-    {
-      stdio: "pipe",
-      shell: false,
-      encoding: "utf8",
-    }
-  );
-
-  const raw = (r.stdout ?? "").toString().trim();
-  return stripStatusPrefixes(raw);
-}
-
 // ---------------------------- MAIN ----------------------------
 let __TEMP_ROOT__ = "";
 
@@ -679,6 +659,8 @@ try {
   let CODE_ONLY_COUNT = 0;
   let TEXT_AND_STRUCTURE_COUNT = 0;
   let SAFE_FALLBACK_COUNT = 0;
+  let AI_JOB_COUNT = 0;
+  let AI_JOB_TOTAL = 0;
 
   console.log("🧭 Pre-checking navigation for new primary pages...");
 
@@ -740,6 +722,12 @@ try {
   const EN_SOURCE_FILES = EN_PAGES.filter((f) => getTranslationSource(f) === "en");
   const SR_SOURCE_FILES = SR_PAGES.filter((f) => getTranslationSource(f) === "sr");
 
+  AI_JOB_TOTAL = EN_SOURCE_FILES.length + SR_SOURCE_FILES.length;
+
+  if (TRANSLATION_MODE !== "off" && AI_JOB_TOTAL > 0) {
+    console.log(`🤖 Potential AI translation jobs in this commit: ${AI_JOB_TOTAL}`);
+  }
+
   if (TRANSLATION_MODE !== "off" && EN_SOURCE_FILES.length) {
     console.log("📄 Staged EN source-of-truth .adoc files:");
     for (const f of EN_SOURCE_FILES) console.log(f);
@@ -755,7 +743,18 @@ try {
       const SR_FILE = FILE.replace(/^docs-en\//, "docs-sr/");
       const TEMP_SR_FILE = toTempPath(__TEMP_ROOT__, SR_FILE);
 
-      const ANALYZER_RESULT = determineAnalyzerResult(FILE, SR_FILE, STATUS);
+      const r = run(
+        process.execPath,
+        [path.join("scripts", "analyze-changes.mjs"), FILE, SR_FILE],
+        {
+          stdio: "pipe",
+          shell: false,
+          encoding: "utf8",
+        }
+      );
+
+      const raw = (r.stdout ?? "").toString().trim();
+      const ANALYZER_RESULT = stripStatusPrefixes(raw);
 
       switch (ANALYZER_RESULT) {
         case "NO_CHANGES":
@@ -777,6 +776,8 @@ try {
           break;
 
         case "TEXT_AND_STRUCTURE":
+          AI_JOB_COUNT++;
+          console.log(`🤖 AI job ${AI_JOB_COUNT}/${AI_JOB_TOTAL} — EN → SR: ${FILE}`);
           console.log(`ℹ️  Analyzer result (EN-source): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation EN -> SR.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
@@ -849,7 +850,18 @@ try {
       const EN_FILE = FILE.replace(/^docs-sr\//, "docs-en/");
       const TEMP_EN_FILE = toTempPath(__TEMP_ROOT__, EN_FILE);
 
-      const ANALYZER_RESULT = determineAnalyzerResult(FILE, EN_FILE, STATUS);
+      const r = run(
+        process.execPath,
+        [path.join("scripts", "analyze-changes.mjs"), FILE, EN_FILE],
+        {
+          stdio: "pipe",
+          shell: false,
+          encoding: "utf8",
+        }
+      );
+
+      const raw = (r.stdout ?? "").toString().trim();
+      const ANALYZER_RESULT = stripStatusPrefixes(raw);
 
       switch (ANALYZER_RESULT) {
         case "NO_CHANGES":
@@ -871,6 +883,8 @@ try {
           break;
 
         case "TEXT_AND_STRUCTURE":
+          AI_JOB_COUNT++;
+          console.log(`🤖 AI job ${AI_JOB_COUNT}/${AI_JOB_TOTAL} — SR → EN: ${FILE}`);
           console.log(`ℹ️  Analyzer result (SR-source): TEXT_AND_STRUCTURE for ${FILE}. Calling AI translation SR -> EN.`);
           TEXT_AND_STRUCTURE_COUNT++;
 
