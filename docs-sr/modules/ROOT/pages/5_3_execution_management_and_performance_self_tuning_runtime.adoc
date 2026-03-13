@@ -27,9 +27,9 @@ Jedan bitan savjet je da iskoristimo *Anypoint Monitoring* i *Visualizer* alate 
 
 Ukratko, Mule runtime je dizajniran da bude *efikasan i skalabilan po defaultu*, ali pametan dizajn aplikacije i dalje čini razliku. Sada kada znamo kako Mule “razmišlja” (event-driven, reactive, auto-tuning), lakše ćemo razumjeti i naredne teme: kako dizajnirati dobar flow (poglavlje 6) i šta izbjegavati (poglavlje 7), jer mnoge najbolje prakse proizilaze upravo iz ovih unutrašnjih mehanizama.
 
-* https://docs.mulesoft.com/mule-runtime/latest/about-mule-event[Mule Event Detaljnije]
-* https://www.mulesoft.com/lp/whitepaper/api/reactive-programming[Reaktivni Runtime]
-* https://blogs.mulesoft.com/dev-guides/how-to-tutorials/thread-management-auto-tuning-mule-4/[Upravljanje Thread-ovima]
-* https://docs.mulesoft.com/mule-runtime/latest/about-flows[Flow, Subflow, Private Flow razlike]
+* https://docs.mulesoft.com/mule-runtime/latest/about-mule-event[Mule Event Detaljnije, window="_blank"]
+* https://www.mulesoft.com/lp/whitepaper/api/reactive-programming[Reaktivni Runtime, window="_blank"]
+* https://blogs.mulesoft.com/dev-guides/how-to-tutorials/thread-management-auto-tuning-mule-4/[Upravljanje Thread-ovima, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/about-flows[Flow, Subflow, Private Flow razlike, window="_blank"]
 
 * link:https://docs.google.com/forms/d/e/1FAIpQLSeo3GRN9wU03y3ZTaQ0YyF33uid7TOWn0XXFR7oRCchO7QDrg/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
