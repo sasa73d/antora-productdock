@@ -1,0 +1,49 @@
+:translation-source: sr
+:page-lang: en
+==== *8.1 Introduction to MUnit – MuleSoft Testing Framework*
+
+MUnit is a *framework for creating unit and integration tests* specifically for Mule applications. Similar to JUnit for Java, MUnit allows defining test cases that execute a specific Mule flow or part of it, with given inputs, and then verify expected outputs or behavior. Key features of MUnit:
+
+[mermaid,munit-test-execution-model,svg]
+....
+flowchart TD
+    A["MUnit Test Case"]
+    B["Test Input Event"]
+    C["Mock External Systems"]
+    D["Execute Mule Flow"]
+    E["Assertions"]
+    F["Test Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *Full integration with the Mule runtime:* tests run inside the Mule environment, which means we can invoke flows as if in “production” – the Mule engine processes the event, but isolated in a test sandbox.
+
+* *Maven and CI integration:* MUnit tests run through Maven (mule-maven-plugin), integrate with Surefire, so they easily fit into CI/CD pipelines (as part of the mvn test phase).
+
+* *Mocking and stubbing:* MUnit provides the ability to simulate component behavior – for example, we can _mock a connector_ so it does not call the real database but returns a predefined result, or intercept a subflow call and return a custom response. This is crucial for isolated testing of logic parts, without dependencies on external systems (which might not be available or could affect data).
+
+[mermaid,munit-mocking-concept,svg]
+....
+flowchart TD
+    A["Mule Flow Under Test"]
+    B["Database Connector"]
+    C["HTTP Request Connector"]
+
+    D["MUnit Mock Database Response"]
+    E["MUnit Mock HTTP Response"]
+
+    A --> B
+    A --> C
+
+    B -. mocked by .-> D
+    C -. mocked by .-> E
+....
+
+* *Assertions:* MUnit enables outcome verification – we can assert that the payload equals the expected JSON, that a variable is set, that a flow was invoked, that an error occurred at the expected point, etc. It has a set of assertion operators and is also compatible with the Java assertion library for anything specific.
+
+* *Running in Studio:* Anypoint Studio has built-in support – we can create an MUnit test via a wizard, use the “MUnit Test Recorder” (which records while manually running the flow and automatically generates a test skeleton), and run tests directly from the IDE with results.

@@ -1,0 +1,49 @@
+:translation-source: sr
+:page-lang: sr
+==== *8.1 Uvod u MUnit – MuleSoft testni okvir*
+
+MUnit je *framework za izradu unit i integracionih testova* specifično za Mule aplikacije . Slično kao JUnit za Javu, MUnit omogućava definisanje test slučajeva koji izvršavaju određeni Mule flow ili njegov dio, sa zadatim ulazima, i zatim provjeravaju očekivane izlaze ili ponašanje. Ključne karakteristike MUnit-a:
+
+[mermaid,munit-test-execution-model,svg]
+....
+flowchart TD
+    A["MUnit Test Case"]
+    B["Test Input Event"]
+    C["Mock External Systems"]
+    D["Execute Mule Flow"]
+    E["Assertions"]
+    F["Test Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+....
+
+* *Potpuna integracija sa Mule runtime-om:* testovi se izvršavaju unutar Mule okruženja, što znači da možemo pozivati flow-ove kao da su “production” – Mule engine obradi event, ali izolovano u test sandboxu.
+
+* *Maven i CI integracija:* MUnit testovi se pokreću kroz Maven (mule-maven-plugin), integrišu se sa Surefire-om, tako da lako ulaze u CI/CD pipeline (kao dio mvn test faze) .
+
+* *Mocking i stubbing:* MUnit pruža mogućnost da simuliramo ponašanje komponenti – npr. možemo _mock-ovati konektor_ da ne zove realnu bazu već da vrati unaprijed definisan rezultat, ili da presretnemo poziv subflow-u i vratimo custom odgovor. Ovo je ključno za izolovano testiranje dijelova logike, bez zavisnosti od eksternih sistema (koji možda nisu dostupni ili bi uticali na podatke).
+
+[mermaid,munit-mocking-concept,svg]
+....
+flowchart TD
+    A["Mule Flow Under Test"]
+    B["Database Connector"]
+    C["HTTP Request Connector"]
+
+    D["MUnit Mock Database Response"]
+    E["MUnit Mock HTTP Response"]
+
+    A --> B
+    A --> C
+
+    B -. mocked by .-> D
+    C -. mocked by .-> E
+....
+
+* *Assertioni (provjere):* MUnit omogućava provjeru ishoda – možemo assert-ovati da je payload jednak očekivanom JSON-u, da je određena varijabla postavljena, da je pozvan neki flow, da se desio error na očekivanom mjestu itd. Ima skup assertion operatora i kompatibilan je i sa Java assert bibliotekom ako treba nešto specifično.
+
+* *Pokretanje u Studio-u:* Anypoint Studio ima ugrađenu podršku – možemo kreirati MUnit test putem wizard-a, koristiti “MUnit Test Recorder” (koji snima dok ručno izvršavamo flow i automatski generiše test skelet), i pokretati testove direktno iz IDE-a sa rezultatima.
