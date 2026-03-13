@@ -76,7 +76,7 @@ function detectDirection(sourcePath, targetPath, explicitDirection) {
 
 function isListingBlockAttributeLine(line) {
   const trimmed = line.trim();
-  return /^$begin:math:display$\(source\|listing\|literal\)\(\%\[\^$end:math:display$]+)?(?:,[^\]]*)?\]$/.test(trimmed);
+  return /^\[(source|listing|literal)(%[^\]]+)?(?:,[^\]]*)?\]$/i.test(trimmed);
 }
 
 function isBacktickFence(line) {
