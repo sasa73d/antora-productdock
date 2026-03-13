@@ -1,0 +1,66 @@
+:translation-source: sr
+:page-lang: en
+==== *6.2 Example of a Structure (Case Study)*
+
+Let's take an imagined scenario: we are creating a "Create Order" API. Here's how we might structure the flow:
+
+[mermaid,create-order-flow-structure,svg]
+....
+flowchart TD
+    A["HTTP Listener POST /api/orders"]
+    B["Validation Subflow"]
+    C["Insert Order into Database"]
+    D["Call Inventory API"]
+    E["Call Payment Service"]
+    F["Prepare Response Payload"]
+    G["HTTP 201 Created Response"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Flow:* create-order-flow – HTTP Listener POST /api/orders. +
+ +
+*Validation subflow:* Check auth header (is JWT token valid?), validate JSON schema for body (maybe using Mule JSON validator component or manually check required fields), if something is wrong – Set Payload with error message {plus} Set Status 400 {plus} short log, and *Short-circuit* (possibly by throwing an error which a global error handler catches and maps to a response; or using On Error Continue within the flow). +
+ +
+*Main processing:* (1) Database connector – insert new order into DB (INSERT) → result is a new orderId returned. (2) Calling Inventory API – check/reserve stock for ordered items (HTTP Request connector, payload is order detail) → receives confirmation or error. (3) if Inventory confirms, proceed; if it returns e.g. out-of-stock for something, we may revert the previous insert (this depends – a DB transaction or compensating logic can be used). (4) Call Payment service – forward the payment (possibly asynchronous – e.g. put message into Queue and continue, in which case this step would be inside an Async scope maybe). (5) Combine results – for example confirm order with status “PENDING++_++PAYMENT” and continue. (6) Set Payload – form JSON response with orderId and status. +
+ +
+*Response:* Set some HTTP header (Location: /api/orders/++{++orderId}) and Status Code 201 Created (because the resource was created). +
+ +
+*Error handling:* within the flow, we would have On Error Propagate for unexpected errors which catches any exception, logs it (Logger at ERROR level with details), and returns 500 with a generic message. Possibly special On Error Continue for known errors – e.g. if Inventory API reported out-of-stock, we can return 409 Conflict with problem description to client. Thus the client gets a meaningful response in all situations.
+
+[mermaid,create-order-error-handling,svg]
+....
+flowchart TD
+    A["Processing Flow"]
+    B["Inventory Error (Out of Stock)"]
+    C["Return 409 Conflict"]
+    D["Unexpected Exception"]
+    E["Log Error"]
+    F["Return 500 Internal Error"]
+
+    A --> B
+    B --> C
+
+    A --> D
+    D --> E
+    E --> F
+....
+
+Such a flow and accompanying subflows/sections clearly separate concerns: auth/validation, processing, output, errors. The code is modular: if tomorrow the same DB insert needs to be used for another purpose, it is extracted into a subflow; if we need to extend the logic (e.g. add sending an email confirmation to the customer), we can easily insert another step near the end or Async subflow.
+
+All these practices result in the integration being *more resilient to change* – we don’t have to refactor the entire flow to add one thing, but include it in the right place. Also, testing is simplified: it is possible to use MUnit to test only validation in isolation, only main logic with mocked external calls, etc.
+
+Up to this point, we have described how a Mule application _should_ look. In the next chapter, we will look at the opposite – *common mistakes and anti-patterns* that occur when these guidelines are not followed, so we know what to avoid.
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/build-application-from-api#main-flow[Healthy flow anatomy√, window="_blank"]
+* https://blogs.mulesoft.com/dev-guides/error-handling-in-mule-4/[Validation and Error Handling, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/flowref-about[Flow modularity, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSdXWkGOvL63aGMo0lC_BjBkm5uuE_W_tBfx1OhzYAslzG_IwQ/viewform?usp=publish-editor[Short quiz to check knowledge, window="_blank"]

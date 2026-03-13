@@ -1,0 +1,66 @@
+:translation-source: sr
+:page-lang: sr
+==== *6.2 Primjer strukture (studija slučaja)*
+
+Uzmimo zamišljeni scenario: pravimo API “Create Order”. Evo kako bismo mogli strukturisati flow:
+
+[mermaid,create-order-flow-structure,svg]
+....
+flowchart TD
+    A["HTTP Listener POST /api/orders"]
+    B["Validation Subflow"]
+    C["Insert Order into Database"]
+    D["Call Inventory API"]
+    E["Call Payment Service"]
+    F["Prepare Response Payload"]
+    G["HTTP 201 Created Response"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+....
+
+* *Flow:* create-order-flow – HTTP Listener POST /api/orders. +
+ +
+*Validation subflow:* Provjera auth header (JWT token validan?), validacija JSON schema za body (koristimo možda Mule JSON validator komponentu ili manualno provjerimo potrebna polja), ako nešto nije u redu – Set Payload s porukom greške {plus} Set Status 400 {plus} kratki log, i *Short-circuit* (moguće bacanjem greške koju globalni error handler hvata i mapira u odgovor; ili korištenjem On Error Continue unutar flow-a). +
+ +
+*Main processing:* (1) Database konektor – upis nove narudžbe u DB (INSERT) → rezultat novi orderId vraćen. (2) Calling Inventory API – provjera/rezervacija zaliha za naručene artikle (HTTP Request konektor, payload je detalj narudžbe) → dobija potvrdu ili grešku. (3) ako Inventory potvrdi, nastavljamo; ako vrati npr. out-of-stock za nešto, možda ćemo revertovati prethodni insert (ovo zavisi – može se koristiti transakcija za DB ili kompenzacijska logika). (4) Poziv Payment servisa – prosljeđivanje plaćanja (možda asynchronous – npr. stavimo poruku u Queue i nastavimo, u tom slučaju ovaj korak bi bio u Async scope možda). (5) Kombinujemo rezultate – recimo potvrdimo narudžbu sa statusom “PENDING++_++PAYMENT” i nastavimo. (6) Set Payload – formiramo JSON odgovor sa orderId i statusom. +
+ +
+*Response:* Set neki HTTP header (Location: /api/orders/++{++orderId}) i Status Code 201 Created (jer je kreiran resurs). +
+ +
+*Error handling:* unutar flow-a bismo imali On Error Propagate za neočekivane greške koji hvata bilo koji exception, loguje ga (Logger na ERROR nivou sa detaljima), i vraća 500 sa generičkom porukom. Možda posebni On Error Continue za poznate greške – npr. ako Inventory API javio out-of-stock, možemo vratiti 409 Conflict sa opisom problema klijentu. Tako klijent dobija smislen odgovor u svim situacijama.
+
+[mermaid,create-order-error-handling,svg]
+....
+flowchart TD
+    A["Processing Flow"]
+    B["Inventory Error (Out of Stock)"]
+    C["Return 409 Conflict"]
+    D["Unexpected Exception"]
+    E["Log Error"]
+    F["Return 500 Internal Error"]
+
+    A --> B
+    B --> C
+
+    A --> D
+    D --> E
+    E --> F
+....
+
+Ovakav flow i prateći subflow-ovi/sekcije jasno odvajaju brige: auth/validacija, obrada, output, greške. Kod je modularan: ako sutra treba isti DB insert koristiti i za drugu svrhu, izdvojen je u subflow; ako treba proširiti logiku (npr. dodati slanje e-mail potvrde kupcu), lako ubacimo još jedan korak pri kraju ili Async subflow.
+
+Sve ove prakse rezultiraju time da integracija bude *otpornija na promjene* – ne moramo refaktorisati cijeli flow da dodamo jednu stvar, već to uključimo na pravo mjesto. Takođe, olakšano je testiranje: moguće je koristiti MUnit da se testira samo validacija u izolaciji, samo glavna logika sa mock-ovanim eksternim pozivima, itd.
+
+Do ovog trenutka smo opisali kako _treba_ da izgleda Mule aplikacija. U sljedećem poglavlju, osvrnućemo se na suprotno – *česte greške i anti-pattern-e* koje se dešavaju kada se ove smjernice ne prate, da bismo znali šta da izbjegavamo.
+
+
+* https://docs.mulesoft.com/mule-runtime/latest/build-application-from-api#main-flow[Anatomija zdravog flow-a√, window="_blank"]
+* https://blogs.mulesoft.com/dev-guides/error-handling-in-mule-4/[Validation and Error Handling, window="_blank"]
+* https://docs.mulesoft.com/mule-runtime/latest/flowref-about[Modularnost flow-a, window="_blank"]
+
+
+* link:https://docs.google.com/forms/d/e/1FAIpQLSdXWkGOvL63aGMo0lC_BjBkm5uuE_W_tBfx1OhzYAslzG_IwQ/viewform?usp=publish-editor[Kratak kviz za provjeru znanja, window="_blank"]
